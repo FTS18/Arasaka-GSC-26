@@ -25,7 +25,7 @@ Janrakshak is a high-stakes operational platform designed for rapid-response NGO
 
 ### Backend
 - FastAPI / Python 3.10
-- MongoDB (Geo-JSON geospatial indexing)
+- Firebase Authentication + Firestore
 - LLM Integration (AI Extraction and Dispatch Briefings)
 - Pytest (Mission-critical validation)
 
@@ -34,7 +34,7 @@ Janrakshak is a high-stakes operational platform designed for rapid-response NGO
 ## Getting Started
 
 ### 1. Requirements
-Ensure you have Node.js 18+, Python 3.10+, and a running MongoDB instance.
+Ensure you have Node.js 18+, Python 3.10+, and a Firebase project configured.
 
 ### 2. Backend Setup
 ```bash
@@ -42,7 +42,9 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
-# Set environment variables: MONGO_URL, AI_API_KEY
+# Set environment variables in backend/.env:
+# FIREBASE_WEB_API_KEY, FIREBASE_PROJECT_ID,
+# FIREBASE_SERVICE_ACCOUNT_FILE (or FIREBASE_SERVICE_ACCOUNT_JSON), AI_API_KEY
 python server.py
 ```
 

@@ -1,37 +1,221 @@
 """
 Smart Resource Allocation - Humanitarian Command Center
-FastAPI backend with JWT auth, RBAC, need prioritization, volunteer matching,
-resource inventory, citizen reporting, disaster mode, and AI insights.
+FastAPI backend with Firebase Auth + Firestore, RBAC, need prioritization,
+volunteer matching, resource inventory, citizen reporting, disaster mode, and AI insights.
 """
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import math
 import asyncio
+import json
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Literal, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
-import bcrypt
-import jwt
+import requests
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth, firestore
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # ---------- Config ----------
-MONGO_URL = os.environ['MONGO_URL']
-DB_NAME = os.environ['DB_NAME']
-JWT_SECRET = os.environ.get('JWT_SECRET', 'dev-secret')
-JWT_ALG = os.environ.get('JWT_ALG', 'HS256')
-JWT_EXP_MIN = int(os.environ.get('JWT_EXP_MIN', '4320'))
+FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_WEB_API_KEY")
+FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID")
+FIREBASE_SERVICE_ACCOUNT_FILE = os.environ.get("FIREBASE_SERVICE_ACCOUNT_FILE")
+FIREBASE_SERVICE_ACCOUNT_JSON = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
 AI_API_KEY = os.environ.get('AI_API_KEY')
 
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+if not FIREBASE_WEB_API_KEY:
+    raise RuntimeError("Missing FIREBASE_WEB_API_KEY for Firebase Authentication.")
+
+
+def _build_firebase_credentials():
+    if FIREBASE_SERVICE_ACCOUNT_FILE:
+        return credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_FILE)
+    if FIREBASE_SERVICE_ACCOUNT_JSON:
+        return credentials.Certificate(json.loads(FIREBASE_SERVICE_ACCOUNT_JSON))
+    return credentials.ApplicationDefault()
+
+
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(_build_firebase_credentials(), {"projectId": FIREBASE_PROJECT_ID} if FIREBASE_PROJECT_ID else None)
+
+
+def _get_nested_value(doc: Dict[str, Any], key: str):
+    value = doc
+    for part in key.split('.'):
+        if not isinstance(value, dict):
+            return None
+        value = value.get(part)
+    return value
+
+
+def _matches_filter(doc: Dict[str, Any], query: Dict[str, Any]) -> bool:
+    if not query:
+        return True
+    for key, expected in query.items():
+        actual = _get_nested_value(doc, key)
+        if isinstance(expected, dict):
+            for op, op_val in expected.items():
+                if op == "$in" and actual not in op_val:
+                    return False
+                if op == "$gte" and not (actual is not None and actual >= op_val):
+                    return False
+                if op == "$gt" and not (actual is not None and actual > op_val):
+                    return False
+                if op == "$lte" and not (actual is not None and actual <= op_val):
+                    return False
+                if op == "$lt" and not (actual is not None and actual < op_val):
+                    return False
+        else:
+            if actual != expected:
+                return False
+    return True
+
+
+def _apply_projection(doc: Dict[str, Any], projection: Optional[Dict[str, int]]) -> Dict[str, Any]:
+    if not projection:
+        return dict(doc)
+
+    includes = [k for k, v in projection.items() if v and k != "_id"]
+    excludes = [k for k, v in projection.items() if not v]
+
+    if includes:
+        return {k: doc.get(k) for k in includes if k in doc}
+
+    out = dict(doc)
+    for k in excludes:
+        out.pop(k, None)
+    return out
+
+
+def _apply_update(doc: Dict[str, Any], update_doc: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(doc)
+    for k, v in update_doc.get("$set", {}).items():
+        out[k] = v
+    for k, v in update_doc.get("$inc", {}).items():
+        out[k] = out.get(k, 0) + v
+    return out
+
+
+class FirestoreCursor:
+    def __init__(self, collection: "FirestoreCollection", query: Dict[str, Any], projection: Optional[Dict[str, int]] = None):
+        self.collection = collection
+        self.query = query or {}
+        self.projection = projection
+        self._sort_key = None
+        self._sort_dir = 1
+        self._limit = None
+
+    def sort(self, key: str, direction: int):
+        self._sort_key = key
+        self._sort_dir = direction
+        return self
+
+    def limit(self, n: int):
+        self._limit = n
+        return self
+
+    async def to_list(self, length: int = 0):
+        docs = await self.collection._all_documents()
+        filtered = [_apply_projection(d, self.projection) for d in docs if _matches_filter(d, self.query)]
+
+        if self._sort_key:
+            reverse = self._sort_dir == -1
+            filtered.sort(key=lambda d: (_get_nested_value(d, self._sort_key) is None, _get_nested_value(d, self._sort_key)), reverse=reverse)
+
+        max_items = self._limit if self._limit is not None else length
+        if max_items and max_items > 0:
+            return filtered[:max_items]
+        return filtered
+
+
+class FirestoreAggregateCursor:
+    def __init__(self, rows: List[Dict[str, Any]]):
+        self.rows = rows
+
+    async def to_list(self, length: int = 0):
+        if length and length > 0:
+            return self.rows[:length]
+        return self.rows
+
+
+class FirestoreCollection:
+    def __init__(self, client: firestore.Client, name: str):
+        self._collection = client.collection(name)
+
+    async def _all_documents(self) -> List[Dict[str, Any]]:
+        docs = await asyncio.to_thread(lambda: list(self._collection.stream()))
+        return [d.to_dict() for d in docs if d.exists]
+
+    def find(self, query: Optional[Dict[str, Any]] = None, projection: Optional[Dict[str, int]] = None):
+        return FirestoreCursor(self, query or {}, projection)
+
+    async def find_one(self, query: Dict[str, Any], projection: Optional[Dict[str, int]] = None):
+        docs = await self.find(query, projection).limit(1).to_list(length=1)
+        return docs[0] if docs else None
+
+    async def insert_one(self, doc: Dict[str, Any]):
+        data = dict(doc)
+        doc_id = data.get("id") or str(uuid.uuid4())
+        data["id"] = doc_id
+        await asyncio.to_thread(lambda: self._collection.document(doc_id).set(data))
+
+    async def update_one(self, query: Dict[str, Any], update_doc: Dict[str, Any], upsert: bool = False):
+        current = await self.find_one(query)
+        if current:
+            merged = _apply_update(current, update_doc)
+            await asyncio.to_thread(lambda: self._collection.document(merged["id"]).set(merged))
+            return
+        if upsert:
+            base = {k: v for k, v in query.items() if not isinstance(v, dict)}
+            merged = _apply_update(base, update_doc)
+            await self.insert_one(merged)
+
+    async def update_many(self, query: Dict[str, Any], update_doc: Dict[str, Any]):
+        rows = await self.find(query).to_list(length=100000)
+        for row in rows:
+            merged = _apply_update(row, update_doc)
+            await asyncio.to_thread(lambda r=merged: self._collection.document(r["id"]).set(r))
+
+    async def count_documents(self, query: Dict[str, Any]):
+        rows = await self.find(query).to_list(length=100000)
+        return len(rows)
+
+    async def aggregate(self, pipeline: List[Dict[str, Any]]):
+        rows = await self.find({}).to_list(length=100000)
+        out = rows
+        for stage in pipeline:
+            if "$group" in stage:
+                g = stage["$group"]
+                group_field = str(g.get("_id", "")).lstrip("$")
+                grouped: Dict[Any, int] = {}
+                for r in out:
+                    key = _get_nested_value(r, group_field)
+                    grouped[key] = grouped.get(key, 0) + 1
+                out = [{"_id": k, "count": v} for k, v in grouped.items()]
+            if "$sort" in stage:
+                sort_field, sort_dir = next(iter(stage["$sort"].items()))
+                reverse = sort_dir == -1
+                out.sort(key=lambda d: d.get(sort_field), reverse=reverse)
+        return FirestoreAggregateCursor(out)
+
+
+class FirestoreDatabase:
+    def __init__(self, client: firestore.Client):
+        self.client = client
+
+    def __getattr__(self, item: str):
+        return FirestoreCollection(self.client, item)
+
+
+firestore_client = firestore.client()
+db = FirestoreDatabase(firestore_client)
 
 app = FastAPI(title="Humanitarian Command Center API")
 api_router = APIRouter(prefix="/api")
@@ -217,24 +401,53 @@ class SystemState(BaseModel):
 
 
 # ---------- Helpers ----------
-def hash_password(pw: str) -> str:
-    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
-
-
-def verify_password(pw: str, hashed: str) -> bool:
+def _firebase_error_detail(resp: requests.Response, fallback_status: int = 400) -> HTTPException:
     try:
-        return bcrypt.checkpw(pw.encode(), hashed.encode())
+        payload = resp.json()
+        code = payload.get("error", {}).get("message", "FIREBASE_AUTH_ERROR")
     except Exception:
-        return False
+        code = "FIREBASE_AUTH_ERROR"
 
-
-def create_token(user_id: str, role: str) -> str:
-    payload = {
-        "sub": user_id,
-        "role": role,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_EXP_MIN),
+    message_map = {
+        "EMAIL_EXISTS": "Email already registered",
+        "INVALID_PASSWORD": "Invalid credentials",
+        "EMAIL_NOT_FOUND": "Invalid credentials",
+        "USER_DISABLED": "Account disabled",
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+    detail = message_map.get(code, code.replace("_", " ").title())
+    return HTTPException(status_code=fallback_status, detail=detail)
+
+
+async def _firebase_rest_auth(path: str, payload: Dict[str, Any], status_code: int = 400) -> Dict[str, Any]:
+    url = f"https://identitytoolkit.googleapis.com/v1/{path}?key={FIREBASE_WEB_API_KEY}"
+    resp = await asyncio.to_thread(requests.post, url, json=payload, timeout=25)
+    if not resp.ok:
+        raise _firebase_error_detail(resp, fallback_status=status_code)
+    return resp.json()
+
+
+async def ensure_firebase_user(email: str, password: str, display_name: str, role: str) -> str:
+    try:
+        user_record = await asyncio.to_thread(firebase_auth.get_user_by_email, email)
+        await asyncio.to_thread(
+            firebase_auth.update_user,
+            user_record.uid,
+            password=password,
+            display_name=display_name,
+            disabled=False,
+        )
+        uid = user_record.uid
+    except firebase_auth.UserNotFoundError:
+        user_record = await asyncio.to_thread(
+            firebase_auth.create_user,
+            email=email,
+            password=password,
+            display_name=display_name,
+        )
+        uid = user_record.uid
+
+    await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": role})
+    return uid
 
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
@@ -242,10 +455,27 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.split(" ", 1)[1]
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-    except jwt.PyJWTError:
+        payload = await asyncio.to_thread(firebase_auth.verify_id_token, token)
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+
+    uid = payload.get("uid")
+    role = payload.get("role") or payload.get("claims", {}).get("role") or "user"
+    user = await db.users.find_one({"id": uid}, {"_id": 0})
+
+    if not user:
+        try:
+            fb_user = await asyncio.to_thread(firebase_auth.get_user, uid)
+            user = User(
+                id=uid,
+                name=fb_user.display_name or (fb_user.email.split("@")[0] if fb_user.email else "User"),
+                email=fb_user.email,
+                role=role,
+            ).model_dump()
+            await db.users.insert_one(user)
+        except Exception:
+            user = None
+
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
@@ -315,8 +545,8 @@ async def get_system_state() -> Dict[str, Any]:
 async def reprioritize_all():
     state = await get_system_state()
     dmode = state["disaster_mode"]
-    cursor = db.needs.find({"status": {"$in": ["pending", "assigned", "in_progress"]}}, {"_id": 0})
-    async for n in cursor:
+    needs = await db.needs.find({"status": {"$in": ["pending", "assigned", "in_progress"]}}, {"_id": 0}).to_list(length=5000)
+    for n in needs:
         score = compute_priority(n, dmode)
         await db.needs.update_one({"id": n["id"]}, {"$set": {"priority_score": score, "updated_at": iso(now_utc())}})
 
@@ -346,27 +576,56 @@ async def ai_insight(prompt: str, system: str = "You are a humanitarian operatio
 async def register(body: RegisterBody):
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(name=body.name, email=body.email, role=body.role, phone=body.phone, language=body.language)
-    doc = user.model_dump()
-    doc["password_hash"] = hash_password(body.password)
-    await db.users.insert_one(doc)
+
+    sign_up = await _firebase_rest_auth(
+        "accounts:signUp",
+        {"email": body.email, "password": body.password, "returnSecureToken": True},
+        status_code=400,
+    )
+    uid = sign_up["localId"]
+    await asyncio.to_thread(firebase_auth.update_user, uid, display_name=body.name)
+    await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": body.role})
+
+    user = User(id=uid, name=body.name, email=body.email, role=body.role, phone=body.phone, language=body.language)
+    await db.users.insert_one(user.model_dump())
+
     # If volunteer role, auto-create volunteer stub
     if body.role == "volunteer":
-        vol = Volunteer(user_id=user.id, name=body.name, base_location=GeoPoint(lat=28.6139, lng=77.2090))
-        await db.volunteers.insert_one(vol.model_dump())
-    token = create_token(user.id, user.role)
+        existing_vol = await db.volunteers.find_one({"user_id": user.id}, {"_id": 0})
+        if not existing_vol:
+            vol = Volunteer(user_id=user.id, name=body.name, base_location=GeoPoint(lat=28.6139, lng=77.2090))
+            await db.volunteers.insert_one(vol.model_dump())
+
+    token = sign_up.get("idToken")
     return {"token": token, "user": user.model_dump()}
 
 
 @api_router.post("/auth/login")
 async def login(body: LoginBody):
-    u = await db.users.find_one({"email": body.email})
-    if not u or not verify_password(body.password, u.get("password_hash", "")):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_token(u["id"], u["role"])
-    u.pop("_id", None)
-    u.pop("password_hash", None)
-    return {"token": token, "user": u}
+    sign_in = await _firebase_rest_auth(
+        "accounts:signInWithPassword",
+        {"email": body.email, "password": body.password, "returnSecureToken": True},
+        status_code=401,
+    )
+
+    uid = sign_in["localId"]
+    u = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not u:
+        fb_user = await asyncio.to_thread(firebase_auth.get_user, uid)
+        role = "user"
+        try:
+            role = (await asyncio.to_thread(firebase_auth.get_user, uid)).custom_claims.get("role", "user") if fb_user.custom_claims else "user"
+        except Exception:
+            role = "user"
+        u = User(
+            id=uid,
+            name=fb_user.display_name or (fb_user.email.split("@")[0] if fb_user.email else "User"),
+            email=fb_user.email,
+            role=role,
+        ).model_dump()
+        await db.users.insert_one(u)
+
+    return {"token": sign_in.get("idToken"), "user": u}
 
 
 @api_router.get("/auth/me")
@@ -777,12 +1036,72 @@ async def ai_forecast(user=Depends(require_roles("admin"))):
 @api_router.post("/seed/demo")
 async def seed_demo():
     # idempotent seed
-    admin = await db.users.find_one({"email": "admin@janrakshakops.com"})
-    if not admin:
-        user = User(name="Command Admin", email="admin@janrakshakops.com", role="admin")
-        doc = user.model_dump()
-        doc["password_hash"] = hash_password("Admin@12345")
-        await db.users.insert_one(doc)
+    demo_credentials = [
+        {
+            "role": "admin",
+            "name": "Command Admin",
+            "email": "admin@janrakshakops.com",
+            "password": "Admin@12345",
+            "language": "en",
+        },
+        {
+            "role": "user",
+            "name": "Relief User",
+            "email": "user@janrakshakops.com",
+            "password": "User@12345",
+            "language": "en",
+        },
+        {
+            "role": "volunteer",
+            "name": "Field Volunteer",
+            "email": "volunteer@janrakshakops.com",
+            "password": "Volunteer@12345",
+            "language": "en",
+        },
+    ]
+
+    user_by_email: Dict[str, Dict[str, Any]] = {}
+    for cred in demo_credentials:
+        uid = await ensure_firebase_user(
+            email=cred["email"],
+            password=cred["password"],
+            display_name=cred["name"],
+            role=cred["role"],
+        )
+        existing = await db.users.find_one({"id": uid}, {"_id": 0})
+        if existing:
+            await db.users.update_one(
+                {"id": uid},
+                {"$set": {
+                    "name": cred["name"],
+                    "email": cred["email"],
+                    "role": cred["role"],
+                    "language": cred["language"],
+                }}
+            )
+            existing["name"] = cred["name"]
+            existing["email"] = cred["email"]
+            existing["role"] = cred["role"]
+            user_by_email[cred["email"]] = existing
+        else:
+            user = User(id=uid, name=cred["name"], email=cred["email"], role=cred["role"], language=cred["language"])
+            doc = user.model_dump()
+            await db.users.insert_one(doc)
+            user_by_email[cred["email"]] = doc
+
+    volunteer_user = user_by_email.get("volunteer@janrakshakops.com")
+    if volunteer_user and not await db.volunteers.find_one({"user_id": volunteer_user["id"]}):
+        volunteer_profile = Volunteer(
+            user_id=volunteer_user["id"],
+            name=volunteer_user["name"],
+            skills=["first_aid", "logistics", "hindi"],
+            transport="bike",
+            trust_score=90,
+            base_location=GeoPoint(lat=28.6139, lng=77.2090),
+            completed_missions=5,
+            languages=["en", "hi"],
+        )
+        await db.volunteers.insert_one(volunteer_profile.model_dump())
 
     if await db.volunteers.count_documents({}) == 0:
         demo_vols = [
@@ -794,11 +1113,16 @@ async def seed_demo():
         ]
         for d in demo_vols:
             # create user
-            uid = str(uuid.uuid4())
+            demo_email = f"{d['name'].lower().replace(' ','.')}@volunteer.org"
+            uid = await ensure_firebase_user(
+                email=demo_email,
+                password="Volunteer@1",
+                display_name=d["name"],
+                role="volunteer",
+            )
             await db.users.insert_one({
-                "id": uid, "name": d["name"], "email": f"{d['name'].lower().replace(' ','.')}@volunteer.org",
+                "id": uid, "name": d["name"], "email": demo_email,
                 "role": "volunteer", "phone": None, "language": "en", "created_at": iso(now_utc()),
-                "password_hash": hash_password("Volunteer@1"),
             })
             v = Volunteer(
                 user_id=uid, name=d["name"], skills=d["skills"], transport=d["transport"],
@@ -847,7 +1171,18 @@ async def seed_demo():
             )
             await db.resources.insert_one(r.model_dump())
 
-    return {"ok": True, "message": "Demo data seeded", "admin_email": "admin@janrakshakops.com", "admin_password": "Admin@12345"}
+    return {
+        "ok": True,
+        "message": "Demo data seeded",
+        "credentials": [{
+            "role": c["role"],
+            "email": c["email"],
+            "password": c["password"],
+            "name": c["name"],
+        } for c in demo_credentials],
+        "admin_email": "admin@janrakshakops.com",
+        "admin_password": "Admin@12345",
+    }
 
 
 @api_router.get("/")
@@ -879,4 +1214,4 @@ async def on_startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    return
