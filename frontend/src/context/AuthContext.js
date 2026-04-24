@@ -9,13 +9,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const loadMe = useCallback(async () => {
-    const token = localStorage.getItem("humops_token");
+    const token = localStorage.getItem("janrakshak_token");
     if (!token) { setLoading(false); return; }
     try {
       const r = await api.get("/auth/me");
       setUser(r.data);
     } catch {
-      localStorage.removeItem("humops_token");
+      localStorage.removeItem("janrakshak_token");
     } finally {
       setLoading(false);
     }
@@ -25,20 +25,20 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const r = await api.post("/auth/login", { email, password });
-    localStorage.setItem("humops_token", r.data.token);
+    localStorage.setItem("janrakshak_token", r.data.token);
     setUser(r.data.user);
     return r.data.user;
   };
 
   const register = async (body) => {
     const r = await api.post("/auth/register", body);
-    localStorage.setItem("humops_token", r.data.token);
+    localStorage.setItem("janrakshak_token", r.data.token);
     setUser(r.data.user);
     return r.data.user;
   };
 
   const logout = () => {
-    localStorage.removeItem("humops_token");
+    localStorage.removeItem("janrakshak_token");
     setUser(null);
   };
 

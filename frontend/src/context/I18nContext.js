@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState } from "react";
 
 const dict = {
   en: {
-    app_name: "HUMOPS",
-    tagline: "Humanitarian Operations Command Center",
+    app_name: "JANRAKSHAK",
+    tagline: "GSC-26 OPERATIONS CONSOLE",
     dashboard: "Dashboard",
     needs: "Requests",
     volunteers: "Volunteers",
@@ -29,8 +29,8 @@ const dict = {
     affected: "People Affected",
   },
   hi: {
-    app_name: "HUMOPS",
-    tagline: "मानवतावादी संचालन कमांड सेंटर",
+    app_name: "JANRAKSHAK",
+    tagline: "GSC-26 ऑपरेशंस कंसोल",
     dashboard: "डैशबोर्ड",
     needs: "अनुरोध",
     volunteers: "स्वयंसेवक",
@@ -61,8 +61,8 @@ const I18nCtx = createContext(null);
 export const useI18n = () => useContext(I18nCtx);
 
 export const I18nProvider = ({ children }) => {
-  const [lang, setLang] = useState(localStorage.getItem("humops_lang") || "en");
+  const [lang, setLang] = useState(localStorage.getItem("janrakshak_lang") || "en");
   const t = (k) => dict[lang]?.[k] || dict.en[k] || k;
-  const change = (l) => { setLang(l); localStorage.setItem("humops_lang", l); };
+  const change = (l) => { setLang(l); localStorage.setItem("janrakshak_lang", l); };
   return <I18nCtx.Provider value={{ lang, setLang: change, t }}>{children}</I18nCtx.Provider>;
 };

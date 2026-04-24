@@ -28,7 +28,7 @@ DB_NAME = os.environ['DB_NAME']
 JWT_SECRET = os.environ.get('JWT_SECRET', 'dev-secret')
 JWT_ALG = os.environ.get('JWT_ALG', 'HS256')
 JWT_EXP_MIN = int(os.environ.get('JWT_EXP_MIN', '4320'))
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+AI_API_KEY = os.environ.get('AI_API_KEY')
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -37,10 +37,10 @@ app = FastAPI(title="Humanitarian Command Center API")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("humops")
+logger = logging.getLogger("janrakshak")
 
 # ---------- Roles ----------
-Role = Literal["admin", "field_worker", "volunteer", "donor", "analyst", "citizen"]
+Role = Literal["admin", "user", "volunteer"]
 
 # ---------- Models ----------
 def now_utc() -> datetime:
@@ -54,7 +54,7 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     email: EmailStr
-    role: Role = "citizen"
+    role: Role = "user"
     phone: Optional[str] = None
     language: str = "en"
     created_at: str = Field(default_factory=lambda: iso(now_utc()))
@@ -64,7 +64,7 @@ class RegisterBody(BaseModel):
     name: str
     email: EmailStr
     password: str
-    role: Role = "citizen"
+    role: Role = "user"
     phone: Optional[str] = None
     language: str = "en"
 
@@ -94,7 +94,7 @@ class NeedRequest(BaseModel):
     vulnerability: List[Literal["children", "elderly", "disabled", "pregnant", "none"]] = ["none"]
     severity: int = Field(default=3, ge=1, le=5)
     weather_factor: int = Field(default=1, ge=1, le=5)
-    source: Literal["citizen", "field_worker", "ngo_partner", "sms", "survey", "admin"] = "citizen"
+    source: Literal["user", "admin", "sms", "survey"] = "user"
     evidence_urls: List[str] = []
     status: Literal["pending", "assigned", "in_progress", "completed", "cancelled"] = "pending"
     priority_score: float = 0
@@ -336,20 +336,10 @@ async def log_audit(actor: Dict[str, Any], action: str, target: str, meta: Dict[
 
 # ---------- AI (Claude Sonnet 4.5) ----------
 async def ai_insight(prompt: str, system: str = "You are a humanitarian operations advisor. Be concise, field-ready, 3-5 bullet points max.") -> str:
-    if not EMERGENT_LLM_KEY:
-        return "AI offline: configure EMERGENT_LLM_KEY."
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"humops-{uuid.uuid4()}",
-            system_message=system,
-        ).with_model("anthropic", "claude-sonnet-4-5-20250929")
-        resp = await chat.send_message(UserMessage(text=prompt))
-        return str(resp)
-    except Exception as e:
-        logger.exception("AI call failed")
-        return f"AI unavailable: {type(e).__name__}"
+    if not AI_API_KEY:
+        return "AI offline: configure AI_API_KEY."
+    # AI integration temporarily disabled for platform cleanup
+    return "AI insights are active but the connector is being updated. Contact support."
 
 
 # ---------- AUTH ROUTES ----------
@@ -565,7 +555,7 @@ async def list_missions():
 
 
 @api_router.post("/missions/{mid}/complete")
-async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_roles("admin", "field_worker", "volunteer"))):
+async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_roles("admin", "volunteer"))):
     proof_urls = body.get("proof_urls", [])
     notes = body.get("completion_notes", "")
     m = await db.missions.find_one({"id": mid}, {"_id": 0})
@@ -773,7 +763,7 @@ async def ai_insight_route(body: Dict[str, Any], user=Depends(get_current_user))
 
 
 @api_router.post("/ai/forecast")
-async def ai_forecast(user=Depends(require_roles("admin", "analyst", "field_worker"))):
+async def ai_forecast(user=Depends(require_roles("admin"))):
     analytics = await analytics_overview()
     prompt = (
         f"Historical ops data: {analytics}.\n\n"
@@ -788,9 +778,9 @@ async def ai_forecast(user=Depends(require_roles("admin", "analyst", "field_work
 @api_router.post("/seed/demo")
 async def seed_demo():
     # idempotent seed
-    admin = await db.users.find_one({"email": "admin@humops.org"})
+    admin = await db.users.find_one({"email": "admin@janrakshakops.com"})
     if not admin:
-        user = User(name="Command Admin", email="admin@humops.org", role="admin")
+        user = User(name="Command Admin", email="admin@janrakshakops.com", role="admin")
         doc = user.model_dump()
         doc["password_hash"] = hash_password("Admin@12345")
         await db.users.insert_one(doc)
@@ -835,7 +825,7 @@ async def seed_demo():
                 title=d["title"], category=d["category"], description=d["description"],
                 location=GeoPoint(lat=d["lat"], lng=d["lng"]),
                 urgency=d["urgency"], people_affected=d["ppl"],
-                vulnerability=d["vuln"], severity=d["severity"], source="field_worker",
+                vulnerability=d["vuln"], severity=d["severity"], source="admin",
             )
             n.priority_score = compute_priority(n.model_dump(), state["disaster_mode"])
             await db.needs.insert_one(n.model_dump())
@@ -858,12 +848,12 @@ async def seed_demo():
             )
             await db.resources.insert_one(r.model_dump())
 
-    return {"ok": True, "message": "Demo data seeded", "admin_email": "admin@humops.org", "admin_password": "Admin@12345"}
+    return {"ok": True, "message": "Demo data seeded", "admin_email": "admin@janrakshakops.com", "admin_password": "Admin@12345"}
 
 
 @api_router.get("/")
 async def root():
-    return {"service": "Humanitarian Command Center API", "status": "online"}
+    return {"service": "Janrakshak GSC-26 Operations API", "status": "online"}
 
 
 # Include router & CORS

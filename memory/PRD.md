@@ -4,7 +4,7 @@
 Build a Smart Resource Allocation platform for NGOs, volunteer groups, and local communities to identify urgent needs, manage resources efficiently, and deploy volunteers where needed most. Centralized need management, AI prioritization, volunteer management with trust scores, smart matching, resource inventory, route optimization, live ops dashboard, geospatial intel with heatmaps, predictive analytics, citizen reporting, multilingual (EN/HI), emergency disaster mode, transparency/audit, analytics, multi-NGO collaboration, notifications, RBAC. Should feel like a real-time command center for humanitarian operations.
 
 ## Tech Stack
-- **Backend**: FastAPI + MongoDB (motor) + JWT + bcrypt + Claude Sonnet 4.5 via Emergent LLM key
+- **Backend**: FastAPI + MongoDB (motor) + JWT + bcrypt + Claude Sonnet 4.5 via AI API key
 - **Frontend**: React 19 + React Router 7 + Leaflet + Recharts + shadcn/ui + Tailwind + Phosphor icons
 - **Fonts**: Chivo (heading), Manrope (body), JetBrains Mono (data) — "Tactical Field Report" aesthetic
 

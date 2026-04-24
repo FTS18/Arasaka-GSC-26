@@ -1,13 +1,13 @@
-"""HUMOPS Backend API Tests - Smart Resource Allocation Platform"""
+"""JANRAKSHAK Backend API Tests - Tactical Resource Management System"""
 import os
 import pytest
 import requests
 import time
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://need-dispatch-ai.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://need-dispatch-ai.preview.janrakshakops.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
-ADMIN_EMAIL = "admin@humops.org"
+ADMIN_EMAIL = "admin@janrakshakops.com"
 ADMIN_PASS = "Admin@12345"
 VOL_EMAIL = "ananya.rao@volunteer.org"
 VOL_PASS = "Volunteer@1"
@@ -30,7 +30,7 @@ def volunteer_token():
 
 @pytest.fixture(scope="session")
 def citizen_token():
-    email = f"TEST_citizen_{int(time.time())}@humops.org"
+    email = f"TEST_citizen_{int(time.time())}@janrakshakops.com"
     r = requests.post(f"{API}/auth/register", json={
         "name": "TEST Citizen", "email": email, "password": "Cit@123", "role": "citizen"
     }, timeout=20)
@@ -47,7 +47,7 @@ class TestAuth:
     def test_root(self):
         r = requests.get(f"{API}/", timeout=15)
         assert r.status_code == 200
-        assert "Humanitarian" in r.json().get("service", "")
+        assert "Janrakshak" in r.json().get("service", "")
 
     def test_login_admin(self, admin_token):
         assert isinstance(admin_token, str) and len(admin_token) > 20
@@ -64,7 +64,7 @@ class TestAuth:
         assert r.status_code == 401
 
     def test_register_volunteer(self):
-        email = f"TEST_vol_{int(time.time())}@humops.org"
+        email = f"TEST_vol_{int(time.time())}@janrakshakops.com"
         r = requests.post(f"{API}/auth/register", json={
             "name": "TEST Vol", "email": email, "password": "Vol@123", "role": "volunteer"
         }, timeout=20)

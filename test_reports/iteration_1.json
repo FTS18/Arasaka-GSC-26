@@ -3,12 +3,25 @@
   "backend_issues": {
     "critical": [],
     "minor": [
-      {"endpoint": "POST /api/matching/auto-assign/{need_id}", "issue": "Inner call passes admin user to suggest_matches which has a require_roles-wrapped dependency path, but only works because suggest uses get_current_user. Fine today; document and keep consistent."},
-      {"endpoint": "POST /api/seed/demo", "issue": "Publicly accessible (no auth). Consider restricting to admin role in production."},
-      {"endpoint": "Startup seed", "issue": "on_startup uses deprecated FastAPI event handlers; migrate to lifespan context for forward compatibility."}
+      {
+        "endpoint": "POST /api/matching/auto-assign/{need_id}",
+        "issue": "Inner call passes admin user to suggest_matches which has a require_roles-wrapped dependency path, but only works because suggest uses get_current_user. Fine today; document and keep consistent."
+      },
+      {
+        "endpoint": "POST /api/seed/demo",
+        "issue": "Publicly accessible (no auth). Consider restricting to admin role in production."
+      },
+      {
+        "endpoint": "Startup seed",
+        "issue": "on_startup uses deprecated FastAPI event handlers; migrate to lifespan context for forward compatibility."
+      }
     ]
   },
-  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
   "test_report_links": [
     "/app/backend/tests/test_humops_backend.py",
     "/app/test_reports/pytest/pytest_results.xml"
@@ -24,12 +37,17 @@
     "Deprecated @app.on_event('startup'/'shutdown'); migrate to lifespan handlers (FastAPI 0.109+).",
     "Citizen reports endpoint runs AI synchronously before returning - may add 3-5s latency per submission; consider background task."
   ],
-  "updated_files": ["/app/backend/tests/test_humops_backend.py"],
-  "success_rate": {"backend": "100% (39/39)", "frontend": "N/A (backend-only testing)"},
+  "updated_files": [
+    "/app/backend/tests/test_humops_backend.py"
+  ],
+  "success_rate": {
+    "backend": "100% (39/39)",
+    "frontend": "N/A (backend-only testing)"
+  },
   "test_credentials": "admin@humops.org / Admin@12345 (works); ananya.rao@volunteer.org / Volunteer@1 (works)",
   "seed_data_creation": "Auto-seeded on backend startup. Created several TEST_ prefixed needs/resources/users during test run - not cleaned up but identifiable by TEST_ prefix.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "All backend endpoints verified working end-to-end: auth + JWT, RBAC with 403 for citizen on admin endpoints, priority scoring in 0-100 range with flood need top-ranked, resource shortages returns >=2 seeded items (blankets + oxygen), matching suggest/auto-assign/explain working, mission completion updates volunteer trust_score and completed_missions, disaster mode toggle boosts relevant categories, Claude Sonnet 4.5 via emergentintegrations returns non-empty strings for ai/insight, ai/forecast, matching/explain, and citizen-report NLP extraction. No regressions."
+  "context_for_next_testing_agent": "All backend endpoints verified working end-to-end: auth + JWT, RBAC with 403 for citizen on admin endpoints, priority scoring in 0-100 range with flood need top-ranked, resource shortages returns >=2 seeded items (blankets + oxygen), matching suggest/auto-assign/explain working, mission completion updates volunteer trust_score and completed_missions, disaster mode toggle boosts relevant categories, Claude Sonnet 4.5 via ai_integrations returns non-empty strings for ai/insight, ai/forecast, matching/explain, and citizen-report NLP extraction. No regressions."
 }
