@@ -10,7 +10,9 @@ import AppShell from "@/components/AppShell";
 import LoginPage from "@/pages/Login";
 import RegisterPage from "@/pages/Register";
 import LandingPage from "@/pages/Landing";
-import Dashboard from "@/pages/Dashboard";
+import AdminDashboardPage from "@/pages/AdminDashboard";
+import VolunteerDashboardPage from "@/pages/VolunteerDashboard";
+import UserDashboardPage from "@/pages/UserDashboard";
 import NeedsPage from "@/pages/Needs";
 import NewNeedPage from "@/pages/NewNeed";
 import NeedDetail from "@/pages/NeedDetail";
@@ -20,12 +22,18 @@ import MapPage from "@/pages/MapView";
 import AnalyticsPage from "@/pages/Analytics";
 import CitizenPage from "@/pages/Citizen";
 import MissionsPage from "@/pages/Missions";
+import { getDashboardPathForRole } from "@/lib/roleRoutes";
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-8 font-mono">LOADING…</div>;
   if (!user) return <Navigate to="/login" replace />;
   return <AppShell>{children}</AppShell>;
+};
+
+const DashboardRedirect = () => {
+  const { user } = useAuth();
+  return <Navigate to={getDashboardPathForRole(user?.role)} replace />;
 };
 
 function App() {
@@ -40,7 +48,10 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/citizen" element={<CitizenPage />} />
-              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/dashboard" element={<PrivateRoute><DashboardRedirect /></PrivateRoute>} />
+              <Route path="/dashboard/admin" element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>} />
+              <Route path="/dashboard/volunteer" element={<PrivateRoute><VolunteerDashboardPage /></PrivateRoute>} />
+              <Route path="/dashboard/user" element={<PrivateRoute><UserDashboardPage /></PrivateRoute>} />
               <Route path="/needs" element={<PrivateRoute><NeedsPage /></PrivateRoute>} />
               <Route path="/needs/new" element={<PrivateRoute><NewNeedPage /></PrivateRoute>} />
               <Route path="/needs/:id" element={<PrivateRoute><NeedDetail /></PrivateRoute>} />

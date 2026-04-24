@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { getDashboardPathForRole } from "@/lib/roleRoutes";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -14,9 +15,9 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      const loggedInUser = await login(email, password);
       toast.success("Authenticated");
-      nav("/dashboard");
+      nav(getDashboardPathForRole(loggedInUser?.role));
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Login failed");
     } finally { setLoading(false); }

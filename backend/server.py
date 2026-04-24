@@ -333,7 +333,6 @@ async def log_audit(actor: Dict[str, Any], action: str, target: str, meta: Dict[
         "timestamp": iso(now_utc()),
     })
 
-
 # ---------- AI (Claude Sonnet 4.5) ----------
 async def ai_insight(prompt: str, system: str = "You are a humanitarian operations advisor. Be concise, field-ready, 3-5 bullet points max.") -> str:
     if not AI_API_KEY:

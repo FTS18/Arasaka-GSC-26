@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useDisaster } from "@/context/DisasterContext";
+import { getDashboardPathForRole } from "@/lib/roleRoutes";
 import {
   SquaresFour, Warning, Users, Package, MapTrifold, ChartLine,
   ClipboardText, SignOut, Translate, Siren, Radio,
@@ -32,6 +33,7 @@ export default function AppShell({ children }) {
   const { t, lang, setLang } = useI18n();
   const { disaster_mode, disaster_reason, toggle } = useDisaster();
   const navigate = useNavigate();
+  const dashboardPath = getDashboardPathForRole(user?.role);
 
   const canOperate = user && user.role === "admin";
 
@@ -48,7 +50,7 @@ export default function AppShell({ children }) {
         </div>
 
         <nav className="flex-1 py-3 space-y-1">
-          <NavItem to="/dashboard" icon={SquaresFour} label={t("dashboard")} testid="nav-dashboard" />
+          <NavItem to={dashboardPath} icon={SquaresFour} label={t("dashboard")} testid="nav-dashboard" />
           <NavItem to="/needs"     icon={Warning}     label={t("needs")} testid="nav-needs" />
           <NavItem to="/map"       icon={MapTrifold}  label={t("map")} testid="nav-map" />
           <NavItem to="/volunteers" icon={Users}      label={t("volunteers")} testid="nav-volunteers" />
