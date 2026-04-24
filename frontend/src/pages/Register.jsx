@@ -25,7 +25,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 tc-gridline">
       <div className="w-full max-w-md tc-card">
-        <div className="overline">Register</div>
+        <div className="tc-overline text-[#BEBFC2]">ONBOARDING · FIELD AGENT</div>
         <h1 className="font-heading text-3xl font-black tracking-tighter mt-1">Create account</h1>
 
         <form onSubmit={submit} className="mt-6 space-y-4" data-testid="register-form">
@@ -35,11 +35,8 @@ export default function RegisterPage() {
           <div>
             <label className="tc-label">Role</label>
             <select className="tc-select" value={form.role} onChange={(e)=>upd("role", e.target.value)} data-testid="reg-role">
+              <option value="user">User</option>
               <option value="volunteer">Volunteer</option>
-              <option value="citizen">Citizen</option>
-              <option value="donor">Donor</option>
-              <option value="field_worker">Field Worker</option>
-              <option value="analyst">Analyst</option>
               <option value="admin">Admin</option>
             </select>
           </div>

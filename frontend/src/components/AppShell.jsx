@@ -33,7 +33,7 @@ export default function AppShell({ children }) {
   const { disaster_mode, disaster_reason, toggle } = useDisaster();
   const navigate = useNavigate();
 
-  const canOperate = user && ["admin", "field_worker"].includes(user.role);
+  const canOperate = user && user.role === "admin";
 
   return (
     <div className="min-h-screen flex bg-[var(--bone)]">
@@ -42,9 +42,9 @@ export default function AppShell({ children }) {
         <div className="px-5 py-6 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">
             <Radio size={22} weight="fill" className="text-[var(--signal-red)]" />
-            <span className="font-heading text-xl font-black tracking-tighter">HUMOPS</span>
+            <span className="font-heading text-xl font-black tracking-tighter">JANRAKSHAK</span>
           </div>
-          <div className="overline mt-1">{t("tagline")}</div>
+          <div className="tc-overline mt-1">{t("tagline")}</div>
         </div>
 
         <nav className="flex-1 py-3 space-y-1">
@@ -72,7 +72,7 @@ export default function AppShell({ children }) {
           </div>
           {user && (
             <div className="space-y-2">
-              <div className="overline">Signed in</div>
+              <div className="tc-overline">Signed in</div>
               <div className="font-semibold text-sm" data-testid="current-user-name">{user.name}</div>
               <div className="tc-badge tc-badge-outl" data-testid="current-user-role">{user.role}</div>
               <button className="btn-ghost w-full flex items-center justify-center gap-2" onClick={() => { logout(); navigate("/login"); }} data-testid="logout-btn">
@@ -88,13 +88,14 @@ export default function AppShell({ children }) {
         {/* Top bar */}
         <div className="h-14 border-b border-[var(--border)] bg-[var(--bone)] flex items-center justify-between px-6" data-testid="app-topbar">
           <div className="flex items-center gap-3">
-            <div className="overline">Status</div>
-            <div className="tc-badge tc-badge-res font-mono" data-testid="ops-status">ONLINE</div>
+            <div className="tc-overline">Telemetry</div>
+            <div className="font-mono text-xs text-[var(--ink-muted)]">28.61°N / 77.20°E</div>
+            <div className="tc-badge tc-badge-mon font-mono ml-4" data-testid="ops-status">SCANNING...</div>
             {disaster_mode && (
-              <div className="flex items-center gap-2 ml-4" data-testid="disaster-banner">
+              <div className="flex items-center gap-2 ml-4 animate-pulse" data-testid="disaster-banner">
                 <Siren size={14} weight="fill" className="text-[var(--signal-red)]" />
-                <span className="tc-badge tc-badge-crit">DISASTER MODE</span>
-                {disaster_reason && <span className="text-xs font-mono text-[var(--ink-soft)]">{disaster_reason}</span>}
+                <span className="tc-badge tc-badge-crit">EMERGENCY PROTOCOL</span>
+                {disaster_reason && <span className="text-xs font-mono text-[var(--ink-soft)] uppercase">{disaster_reason}</span>}
               </div>
             )}
           </div>
