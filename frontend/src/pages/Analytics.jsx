@@ -27,19 +27,19 @@ export default function Analytics() {
   return (
     <div className="p-6 md:p-8 space-y-6" data-testid="analytics-page">
       <div>
-        <div className="overline">Intelligence</div>
+        <div className="tc-overline">Intelligence</div>
         <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Analytics & Impact</h1>
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
-        <div className="tc-card"><div className="overline">People Helped</div><div className="font-mono font-bold text-4xl mt-2">{a.people_helped}</div></div>
-        <div className="tc-card"><div className="overline">Efficiency Score</div><div className="font-mono font-bold text-4xl mt-2">{a.efficiency_score}%</div></div>
-        <div className="tc-card"><div className="overline">Top Volunteer</div><div className="font-heading font-bold text-xl mt-2">{a.top_volunteers[0]?.name || "—"}</div><div className="overline mt-1">TRUST {Math.round(a.top_volunteers[0]?.trust_score || 0)}</div></div>
+        <div className="tc-card"><div className="tc-overline">People Helped</div><div className="font-mono font-bold text-4xl mt-2">{a.people_helped}</div></div>
+        <div className="tc-card"><div className="tc-overline">Efficiency Score</div><div className="font-mono font-bold text-4xl mt-2">{a.efficiency_score}%</div></div>
+        <div className="tc-card"><div className="tc-overline">Top Volunteer</div><div className="font-heading font-bold text-xl mt-2">{a.top_volunteers[0]?.name || "—"}</div><div className="tc-overline mt-1">TRUST {Math.round(a.top_volunteers[0]?.trust_score || 0)}</div></div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="tc-card">
-          <div className="overline">Requests by Category</div>
+          <div className="tc-overline">Requests by Category</div>
           <div className="font-heading font-bold text-lg mt-1 mb-4">Demand Distribution</div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={a.by_category}>
@@ -52,7 +52,7 @@ export default function Analytics() {
           </ResponsiveContainer>
         </div>
         <div className="tc-card">
-          <div className="overline">Monthly Trend</div>
+          <div className="tc-overline">Monthly Trend</div>
           <div className="font-heading font-bold text-lg mt-1 mb-4">Last 6 Months</div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={a.monthly_trend}>
@@ -69,7 +69,7 @@ export default function Analytics() {
       <div className="tc-card">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <div className="overline">Predictive Analytics</div>
+            <div className="tc-overline">Predictive Analytics</div>
             <div className="font-heading font-bold text-lg mt-1">AI Demand Forecast</div>
           </div>
           <button className="btn-hard" onClick={doForecast} disabled={floading} data-testid="forecast-btn">
@@ -81,7 +81,7 @@ export default function Analytics() {
       </div>
 
       <div className="tc-card">
-        <div className="overline">Audit Trail</div>
+        <div className="tc-overline">Audit Trail</div>
         <div className="font-heading font-bold text-lg mt-1 mb-4">Transparency Log</div>
         <div className="divide-y divide-[var(--border)] max-h-96 overflow-auto">
           {audit.length === 0 && <div className="text-xs font-mono text-[var(--ink-soft)] py-4">ADMIN/ANALYST ONLY</div>}

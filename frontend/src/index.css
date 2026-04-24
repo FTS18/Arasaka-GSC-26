@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;700;800;900&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;700;800;900&family=Sora:wght@300;400;500;600;700&display=swap');
 @import 'leaflet/dist/leaflet.css';
 @tailwind base;
 @tailwind components;
@@ -12,6 +12,8 @@
   --ink-muted: #8A8D91;
   --signal-red: #E63946;
   --signal-red-dk: #C02D3A;
+  --arasaka-blue: #1e3a8a;
+  --arasaka-gold: #b49e6d;
   --sage: #2A3D31;
   --sage-dk: #1C2921;
   --amber: #D97706;
@@ -22,50 +24,96 @@
   --dark-surface: #1A1B1C;
 }
 
-html, body, #root { height: 100%; }
+html,
+body,
+#root {
+  height: 100%;
+}
 
 body {
   margin: 0;
   background: var(--bone);
   color: var(--ink);
-  font-family: 'Manrope', system-ui, sans-serif;
+  font-family: 'Sora', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-.font-heading { font-family: 'Chivo', sans-serif; letter-spacing: -0.02em; }
-.font-body    { font-family: 'Manrope', sans-serif; }
-.font-mono    { font-family: 'JetBrains Mono', monospace; }
+.font-heading {
+  font-family: 'Chivo', sans-serif;
+  letter-spacing: -0.04em;
+}
 
-/* Tactical overline */
-.overline {
-  font-family: 'JetBrains Mono', monospace;
+.font-body {
+  font-family: 'Sora', sans-serif;
+}
+
+.font-mono {
+  font-family: 'Sora', sans-serif;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tactical overline (Label style) */
+.tc-overline {
+  font-family: 'Sora', sans-serif;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--ink-soft);
+  text-decoration: none;
 }
 
-/* Sharp card */
+/* Arasaka Tactical Card */
 .tc-card {
   background: #FFFFFF;
   border: 1px solid var(--border);
-  border-radius: 2px;
+  border-radius: 0;
   padding: 24px;
-  transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
+  position: relative;
+  transition: all 150ms ease-out;
+  box-shadow: 0px 0px 0px transparent;
 }
-.tc-card:hover { border-color: var(--ink); }
+
+.tc-card:hover {
+  border-color: var(--ink);
+  transform: translate(-3px, -3px);
+  box-shadow: 6px 6px 0px var(--border);
+}
+
+.tc-card::before,
+.tc-card::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--ink-muted);
+}
+
+.tc-card::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.tc-card::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: 0;
+  border-top: 0;
+}
 
 .tc-card-crit {
-  border-left: 3px solid var(--signal-red);
+  border-left: 4px solid var(--signal-red);
 }
 
 /* Offset solid shadow button */
 .btn-hard {
   background: var(--ink);
   color: var(--bone);
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 12px;
@@ -75,13 +123,19 @@ body {
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
-.btn-hard:hover { background: var(--signal-red); border-color: var(--signal-red); transform: translate(-2px,-2px); box-shadow: 4px 4px 0px var(--ink); }
+
+.btn-hard:hover {
+  background: var(--signal-red);
+  border-color: var(--signal-red);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px var(--ink);
+}
 
 .btn-primary {
   background: var(--signal-red);
   color: #fff;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 12px;
@@ -91,13 +145,17 @@ body {
   cursor: pointer;
   transition: background 150ms ease-out;
 }
-.btn-primary:hover { background: var(--signal-red-dk); border-color: var(--signal-red-dk); }
+
+.btn-primary:hover {
+  background: var(--signal-red-dk);
+  border-color: var(--signal-red-dk);
+}
 
 .btn-ghost {
   background: transparent;
   color: var(--ink);
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 600;
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 12px;
@@ -106,10 +164,16 @@ body {
   border-radius: 2px;
   cursor: pointer;
 }
-.btn-ghost:hover { background: var(--ink); color: var(--bone); }
+
+.btn-ghost:hover {
+  background: var(--ink);
+  color: var(--bone);
+}
 
 /* Input */
-.tc-input, .tc-select, .tc-textarea {
+.tc-input,
+.tc-select,
+.tc-textarea {
   width: 100%;
   background: #fff;
   border: 1px solid var(--border);
@@ -120,15 +184,20 @@ body {
   color: var(--ink);
   transition: border-color 120ms ease;
 }
-.tc-input:focus, .tc-select:focus, .tc-textarea:focus {
+
+.tc-input:focus,
+.tc-select:focus,
+.tc-textarea:focus {
   outline: none;
   border-color: var(--ink);
   border-width: 2px;
   padding: 9px 11px;
 }
+
 .tc-label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Sora', sans-serif;
   font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--ink-soft);
@@ -139,24 +208,45 @@ body {
 /* Badges */
 .tc-badge {
   display: inline-block;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Sora', sans-serif;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 800;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 3px 8px;
   border-radius: 2px;
   border: 1px solid transparent;
 }
-.tc-badge-crit  { background: var(--signal-red); color: #fff; }
-.tc-badge-high  { background: #F59E0B; color: #111; }
-.tc-badge-mon   { background: #3B82F6; color: #fff; }
-.tc-badge-res   { background: #10B981; color: #fff; }
-.tc-badge-outl  { background: transparent; color: var(--ink); border-color: var(--ink); }
+
+.tc-badge-crit {
+  background: var(--signal-red);
+  color: #fff;
+}
+
+.tc-badge-high {
+  background: #F59E0B;
+  color: #111;
+}
+
+.tc-badge-mon {
+  background: #3B82F6;
+  color: #fff;
+}
+
+.tc-badge-res {
+  background: #10B981;
+  color: #fff;
+}
+
+.tc-badge-outl {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--ink);
+}
 
 /* Tabs underline */
 .tc-tab {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Sora', sans-serif;
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -167,25 +257,45 @@ body {
   cursor: pointer;
   transition: color 120ms, border-color 120ms;
 }
-.tc-tab.active { color: var(--ink); border-color: var(--ink); font-weight: 700; }
+
+.tc-tab.active {
+  color: var(--ink);
+  border-color: var(--ink);
+  font-weight: 700;
+}
 
 /* Grid lines accent */
 .tc-gridline {
-  background-image: linear-gradient(to right, rgba(17,18,19,0.04) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(17,18,19,0.04) 1px, transparent 1px);
+  background-image: linear-gradient(to right, rgba(17, 18, 19, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(17, 18, 19, 0.04) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 
 /* Scanning loader */
 @keyframes scan {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
 }
+
 .tc-scan {
-  position: relative; overflow: hidden; height: 2px; background: var(--border);
+  position: relative;
+  overflow: hidden;
+  height: 2px;
+  background: var(--border);
 }
+
 .tc-scan::after {
-  content: ''; position: absolute; top: 0; left: 0; height: 100%; width: 30%;
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 30%;
   background: var(--signal-red);
   animation: scan 1.2s linear infinite;
 }
@@ -195,21 +305,73 @@ body.disaster-mode {
   background: #1A1B1C;
   color: #F6F5F2;
 }
-body.disaster-mode .tc-card { background: #26272A; border-color: #E63946; color: #F6F5F2; }
-body.disaster-mode .tc-card:hover { border-color: #fff; }
-body.disaster-mode .tc-input, body.disaster-mode .tc-select, body.disaster-mode .tc-textarea { background: #1A1B1C; color: #fff; border-color: #40424A; }
-body.disaster-mode .btn-hard { background: #E63946; border-color: #E63946; color: #fff; }
-body.disaster-mode .btn-ghost { color: #F6F5F2; border-color: #F6F5F2; }
-body.disaster-mode .btn-ghost:hover { background: #E63946; border-color: #E63946; color: #fff; }
-body.disaster-mode .overline, body.disaster-mode .tc-label { color: #BEBFC2; }
-body.disaster-mode .text-inkmuted { color: #BEBFC2 !important; }
-body.disaster-mode .bg-bone { background: #1A1B1C !important; }
+
+body.disaster-mode .tc-card {
+  background: #26272A;
+  border-color: #E63946;
+  color: #F6F5F2;
+}
+
+body.disaster-mode .tc-card:hover {
+  border-color: #fff;
+}
+
+body.disaster-mode .tc-input,
+body.disaster-mode .tc-select,
+body.disaster-mode .tc-textarea {
+  background: #1A1B1C;
+  color: #fff;
+  border-color: #40424A;
+}
+
+body.disaster-mode .btn-hard {
+  background: #E63946;
+  border-color: #E63946;
+  color: #fff;
+}
+
+body.disaster-mode .btn-ghost {
+  color: #F6F5F2;
+  border-color: #F6F5F2;
+}
+
+body.disaster-mode .btn-ghost:hover {
+  background: #E63946;
+  border-color: #E63946;
+  color: #fff;
+}
+
+body.disaster-mode .tc-overline,
+body.disaster-mode .tc-label {
+  color: #BEBFC2;
+}
+
+body.disaster-mode .text-inkmuted {
+  color: #BEBFC2 !important;
+}
+
+body.disaster-mode .bg-bone {
+  background: #1A1B1C !important;
+}
 
 /* Leaflet tile filter — tactical */
-.leaflet-tile-pane { filter: grayscale(0.5) contrast(1.05); }
-body.disaster-mode .leaflet-tile-pane { filter: grayscale(1) brightness(0.65) contrast(1.2); }
-.leaflet-container { background: #E8E6E1; border: 1px solid var(--border); }
-body.disaster-mode .leaflet-container { background: #0E0F10; border-color: #E63946; }
+.leaflet-tile-pane {
+  filter: grayscale(0.5) contrast(1.05);
+}
+
+body.disaster-mode .leaflet-tile-pane {
+  filter: grayscale(1) brightness(0.65) contrast(1.2);
+}
+
+.leaflet-container {
+  background: #E8E6E1;
+  border: 1px solid var(--border);
+}
+
+body.disaster-mode .leaflet-container {
+  background: #0E0F10;
+  border-color: #E63946;
+}
 
 /* shadcn overrides */
 @layer base {
@@ -238,6 +400,11 @@ body.disaster-mode .leaflet-container { background: #0E0F10; border-color: #E639
 }
 
 @layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
 }

@@ -10,8 +10,8 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Radio size={22} weight="fill" className="text-[var(--signal-red)]" />
-            <span className="font-heading text-xl font-black tracking-tighter">HUMOPS</span>
-            <span className="overline ml-2 hidden md:inline">COMMAND CENTER</span>
+            <span className="font-heading text-xl font-black tracking-tighter">JANRAKSHAK</span>
+            <span className="tc-overline ml-2 hidden md:inline">GSC-26 OPERATIONS</span>
           </div>
           <nav className="flex items-center gap-3">
             <Link to="/citizen" className="btn-ghost" data-testid="cta-citizen-report">Citizen Report</Link>
@@ -23,13 +23,13 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="max-w-7xl mx-auto px-6 py-16 md:py-24 grid md:grid-cols-12 gap-8 tc-gridline">
         <div className="md:col-span-7">
-          <div className="overline">Smart Resource Allocation · v1.0</div>
+          <div className="tc-overline">Operational Platform · Janrakshak GSC-26</div>
           <h1 className="font-heading text-5xl md:text-7xl font-black tracking-tighter leading-[0.95] mt-4">
-            Turn scattered<br />
-            signals into <span className="text-[var(--signal-red)]">coordinated relief.</span>
+            Turn field<br />
+            intelligence into <span className="text-[var(--signal-red)]">decisive action.</span>
           </h1>
           <p className="mt-6 text-base md:text-lg text-[var(--ink-soft)] max-w-xl leading-relaxed">
-            A field-ready command console for NGOs and volunteer networks — triage urgent needs, dispatch the right people, route resources, and measure impact in real time.
+            A high-stakes command console for NGOs and rapid response networks — triage crisis signals, dispatch vetted personnel, and route critical resources with precision.
           </p>
           <div className="mt-8 flex items-center gap-3">
             <Link to="/login" className="btn-primary" data-testid="hero-login-btn">Enter Console</Link>
@@ -45,7 +45,7 @@ export default function LandingPage() {
             ].map(([v, l]) => (
               <div key={l} className="border-l border-[var(--ink)] pl-4">
                 <div className="font-mono text-xl font-bold">{v}</div>
-                <div className="overline mt-1">{l}</div>
+                <div className="tc-overline mt-1">{l}</div>
               </div>
             ))}
           </div>
@@ -59,8 +59,8 @@ export default function LandingPage() {
             />
             <div className="p-4 border-t border-[var(--border)] flex items-center justify-between">
               <div>
-                <div className="overline">Live Feed</div>
-                <div className="font-mono text-sm mt-1">EAST DELHI · ZONE-4 · FLOOD RESPONSE</div>
+                <div className="tc-overline">Live Feed</div>
+                <div className="font-mono text-sm mt-1">SECTOR-09 · GRID-ALPHA · STATUS: CRITICAL</div>
               </div>
               <div className="tc-badge tc-badge-crit">CRITICAL</div>
             </div>
@@ -71,7 +71,7 @@ export default function LandingPage() {
       {/* Features */}
       <section className="border-t border-[var(--border)] py-16">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="overline">Capabilities</div>
+          <div className="tc-overline">Capabilities</div>
           <h2 className="font-heading text-3xl md:text-4xl font-black tracking-tighter mt-2 max-w-3xl">
             A tactical stack for humanitarian logistics.
           </h2>
@@ -96,8 +96,8 @@ export default function LandingPage() {
 
       <footer className="border-t border-[var(--border)] py-8">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-3">
-          <div className="font-mono text-xs text-[var(--ink-soft)]">HUMOPS · Humanitarian Operations Command Center</div>
-          <div className="font-mono text-xs text-[var(--ink-muted)]">Built for NGOs, volunteers, and citizens.</div>
+          <div className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-widest">JANRAKSHAK · GSC-26 OPERATIONS CONSOLE</div>
+          <div className="font-mono text-xs text-[var(--ink-muted)] uppercase tracking-wider">Tactical Resource Management System</div>
         </div>
       </footer>
     </div>

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 export default function LoginPage() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("admin@humops.org");
+  const [email, setEmail] = useState("admin@janrakshakops.com");
   const [password, setPassword] = useState("Admin@12345");
   const [loading, setLoading] = useState(false);
 
@@ -26,9 +26,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex tc-gridline">
       <div className="hidden md:flex w-1/2 bg-[var(--ink)] text-[var(--bone)] p-12 flex-col justify-between">
         <div>
-          <div className="overline text-[#BEBFC2]">EST. 2026 · FIELD CONSOLE</div>
+          <div className="tc-overline text-[#BEBFC2]">EST. 2026 · FIELD CONSOLE</div>
           <div className="font-heading text-4xl font-black tracking-tighter mt-4 leading-[0.95]">
-            HUMANITARIAN<br />OPERATIONS<br /><span className="text-[var(--signal-red)]">COMMAND.</span>
+            JANRAKSHAK<br />GSC-26<br /><span className="text-[var(--signal-red)]">COMMAND.</span>
           </div>
           <p className="mt-6 text-sm text-[#BEBFC2] max-w-md">
             Real-time need triage, volunteer dispatch, resource routing, and impact telemetry — built for NGOs and field teams operating under pressure.
@@ -42,7 +42,7 @@ export default function LoginPage() {
           ].map(([v, l]) => (
             <div key={l}>
               <div className="text-2xl font-bold">{v}</div>
-              <div className="overline text-[#BEBFC2] mt-1">{l}</div>
+              <div className="tc-overline text-[#BEBFC2] mt-1">{l}</div>
             </div>
           ))}
         </div>
@@ -50,7 +50,7 @@ export default function LoginPage() {
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="overline">Access Console</div>
+          <div className="tc-overline">Access Console</div>
           <h1 className="font-heading text-3xl font-black tracking-tighter mt-1">Sign in</h1>
           <p className="text-sm text-[var(--ink-soft)] mt-2">Operator credentials required.</p>
 
@@ -74,7 +74,7 @@ export default function LoginPage() {
             <Link to="/citizen" className="text-[var(--ink)] underline" data-testid="link-citizen">File citizen report</Link>
           </div>
           <div className="mt-8 border-t border-[var(--border)] pt-4 text-[10px] font-mono text-[var(--ink-muted)]">
-            Demo: admin@humops.org / Admin@12345
+            Demo: admin@janrakshakops.com / Admin@12345
           </div>
         </div>
       </div>

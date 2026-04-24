@@ -34,15 +34,15 @@ export default function CitizenPage() {
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Radio size={22} weight="fill" className="text-[var(--signal-red)]" />
-            <span className="font-heading text-xl font-black tracking-tighter">HUMOPS</span>
-            <span className="overline ml-2">CITIZEN PORTAL</span>
+            <span className="font-heading text-xl font-black tracking-tighter">JANRAKSHAK</span>
+            <span className="tc-overline ml-2">CITIZEN PORTAL</span>
           </div>
           <Link to="/" className="btn-ghost text-[10px]"><ArrowLeft size={12} className="inline mr-1" /> Home</Link>
         </div>
       </header>
 
       <div className="max-w-2xl mx-auto px-6 py-10">
-        <div className="overline">Report a Need</div>
+        <div className="tc-overline">Report a Need</div>
         <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Tell us what's happening.</h1>
         <p className="mt-3 text-[var(--ink-soft)]">Your report helps field teams respond faster. AI will extract the urgency, category, and affected population automatically.</p>
 
@@ -73,9 +73,9 @@ export default function CitizenPage() {
           </form>
         ) : (
           <div className="tc-card mt-8" data-testid="citizen-success">
-            <div className="overline text-[var(--success)]">Received</div>
+            <div className="tc-overline text-[var(--success)]">Received</div>
             <div className="font-heading font-bold text-xl mt-1">Thank you — your report is in the queue.</div>
-            <div className="mt-4 overline">AI Extraction</div>
+            <div className="tc-overline">SOS Dispatch</div>
             <pre className="text-sm font-mono whitespace-pre-wrap mt-2 text-[var(--ink-soft)]">{JSON.stringify(submitted.extracted, null, 2)}</pre>
             <button className="btn-ghost mt-6" onClick={() => { setSubmitted(null); setForm({ raw_text: "", image_urls: "", reporter_name: "", reporter_phone: "", language: "en" }); }}>File Another</button>
           </div>

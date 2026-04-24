@@ -42,7 +42,9 @@ export default function NewNeedPage() {
 
   return (
     <div className="p-6 md:p-8" data-testid="new-need-page">
-      <div className="overline">Intake</div>
+      <div>
+        <div className="tc-overline">Operations</div>
+      </div>
       <h1 className="font-heading text-4xl font-black tracking-tighter mt-1 mb-6">New Request</h1>
 
       <form onSubmit={submit} className="tc-card max-w-3xl space-y-5">

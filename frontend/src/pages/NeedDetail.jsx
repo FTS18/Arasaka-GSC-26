@@ -60,7 +60,7 @@ export default function NeedDetail() {
     <div className="p-6 md:p-8 space-y-6" data-testid="need-detail-page">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="overline">Request · {need.id.slice(0, 8)}</div>
+          <div className="tc-overline">Request · {need.id.slice(0, 8)}</div>
           <h1 className="font-heading text-3xl md:text-4xl font-black tracking-tighter mt-1">{need.title}</h1>
           <div className="mt-2 flex items-center gap-2">
             <span className={`tc-badge ${need.urgency >= 4 ? "tc-badge-crit" : "tc-badge-outl"}`}>U{need.urgency}</span>
@@ -69,30 +69,30 @@ export default function NeedDetail() {
           </div>
         </div>
         <div className="text-right">
-          <div className="overline">Priority Score</div>
+          <div className="tc-overline">Priority Score</div>
           <div className="font-mono font-black text-6xl text-[var(--signal-red)]">{Math.round(need.priority_score)}</div>
         </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 tc-card">
-          <div className="overline">Description</div>
+          <div className="tc-overline">Description</div>
           <p className="mt-2 text-sm leading-relaxed">{need.description}</p>
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-sm">
-            <div><div className="overline">Affected</div><div className="font-bold text-2xl">{need.people_affected}</div></div>
-            <div><div className="overline">Severity</div><div className="font-bold text-2xl">S{need.severity}</div></div>
-            <div><div className="overline">Weather</div><div className="font-bold text-2xl">W{need.weather_factor}</div></div>
-            <div><div className="overline">Source</div><div className="font-bold text-xs mt-2">{need.source}</div></div>
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-sm text-[var(--ink-soft)]">
+            <div><div className="tc-overline">Affected</div><div className="font-bold text-2xl text-[var(--ink)]">{need.people_affected}</div></div>
+            <div><div className="tc-overline">Severity</div><div className="font-bold text-2xl text-[var(--ink)]">S{need.severity}</div></div>
+            <div><div className="tc-overline">Weather</div><div className="font-bold text-2xl text-[var(--ink)]">W{need.weather_factor}</div></div>
+            <div><div className="tc-overline">Source</div><div className="font-bold text-xs mt-2 text-[var(--ink)]">{need.source}</div></div>
           </div>
-          <div className="mt-4 overline">Location</div>
+          <div className="mt-6 tc-overline">Location</div>
           <div className="font-mono text-sm mt-1">{need.location.lat.toFixed(4)}, {need.location.lng.toFixed(4)} {need.location.address && `· ${need.location.address}`}</div>
-          <div className="mt-4 overline">Vulnerability</div>
-          <div className="flex gap-2 mt-1 flex-wrap">
+          <div className="mt-4 tc-overline">Vulnerability</div>
+          <div className="flex gap-2 mt-2 flex-wrap">
             {need.vulnerability.map(v => <span key={v} className="tc-badge tc-badge-crit">{v}</span>)}
           </div>
           {need.evidence_urls?.length > 0 && (
             <>
-              <div className="mt-4 overline">Evidence</div>
+              <div className="mt-4 tc-overline">Evidence</div>
               <div className="flex gap-3 mt-2 flex-wrap">
                 {need.evidence_urls.map((u, i) => (
                   <a key={i} href={u} target="_blank" rel="noreferrer" className="block">
@@ -114,14 +114,14 @@ export default function NeedDetail() {
           </div>
           {explain && (
             <div className="mt-4 tc-card border-l-2 border-[var(--signal-red)] bg-[var(--bone-alt)]">
-              <div className="overline">AI Recommendation</div>
+              <div className="tc-overline">AI Recommendation</div>
               <pre className="text-sm whitespace-pre-wrap font-body mt-2">{explain}</pre>
             </div>
           )}
         </div>
 
         <div className="tc-card">
-          <div className="overline">Matched Volunteers</div>
+          <div className="tc-overline">Matched Volunteers</div>
           <div className="font-heading font-bold text-lg mt-1 mb-4">Top Candidates</div>
           {matches.length === 0 && <div className="font-mono text-xs text-[var(--ink-soft)]">NO MATCHES IN RANGE</div>}
           <div className="space-y-3">

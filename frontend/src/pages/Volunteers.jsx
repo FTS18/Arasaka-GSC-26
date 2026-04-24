@@ -16,7 +16,7 @@ export default function VolunteersPage() {
     <div className="p-6 md:p-8 space-y-6" data-testid="volunteers-page">
       <div className="flex items-end justify-between">
         <div>
-          <div className="overline">Roster</div>
+          <div className="tc-overline">Roster</div>
           <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Volunteers</h1>
         </div>
         <select className="tc-select max-w-xs" value={availability} onChange={(e)=>setAvailability(e.target.value)} data-testid="filter-availability">
@@ -33,10 +33,10 @@ export default function VolunteersPage() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="font-heading font-bold text-lg">{v.name}</div>
-                <div className="overline">{v.transport.toUpperCase()} · {v.working_radius_km}KM RADIUS</div>
+                <div className="tc-overline">{v.transport.toUpperCase()} · {v.working_radius_km}KM RADIUS</div>
               </div>
               <div className="text-right">
-                <div className="overline">Trust</div>
+                <div className="tc-overline">Trust</div>
                 <div className="font-mono font-bold text-2xl">{Math.round(v.trust_score)}</div>
               </div>
             </div>

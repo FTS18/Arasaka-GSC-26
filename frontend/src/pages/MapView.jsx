@@ -20,7 +20,7 @@ export default function MapView() {
   return (
     <div className="p-6 md:p-8 space-y-4" data-testid="map-page">
       <div>
-        <div className="overline">Geospatial Intel</div>
+        <div className="tc-overline">Geospatial Intel</div>
         <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Live Map</h1>
       </div>
 
@@ -38,7 +38,7 @@ export default function MapView() {
               pathOptions={{ color: urgencyColor(p.urgency), fillColor: urgencyColor(p.urgency), fillOpacity: 0.6, weight: 2 }}
             >
               <Popup>
-                <div style={{fontFamily: "JetBrains Mono, monospace", fontSize: 12}}>
+                <div style={{fontFamily: "Sora, sans-serif", fontSize: 12}}>
                   <strong>{p.title}</strong><br />
                   Category: {p.category}<br />
                   Urgency: U{p.urgency} · Score: {Math.round(p.priority_score)}
@@ -54,7 +54,7 @@ export default function MapView() {
               pathOptions={{ color: "#2A3D31", fillColor: "#2A3D31", fillOpacity: 0.9, weight: 1 }}
             >
               <Popup>
-                <div style={{fontFamily: "JetBrains Mono, monospace", fontSize: 12}}>
+                <div style={{fontFamily: "Sora, sans-serif", fontSize: 12}}>
                   <strong>{v.name}</strong><br />
                   Trust: {Math.round(v.trust_score)} · {v.availability}
                 </div>

@@ -27,7 +27,7 @@ export default function NeedsPage() {
     <div className="p-6 md:p-8 space-y-6" data-testid="needs-page">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <div className="overline">Need Management</div>
+          <div className="tc-overline">Need Management</div>
           <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Requests</h1>
         </div>
         <div className="flex gap-3">
@@ -68,7 +68,7 @@ export default function NeedsPage() {
 
         <table className="w-full mt-6 text-sm">
           <thead>
-            <tr className="border-b border-[var(--border)] text-left overline">
+            <tr className="border-b border-[var(--border)] text-left tc-overline">
               <th className="py-2">Score</th>
               <th>Title</th>
               <th>Category</th>

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 const Stat = ({ label, value, variant, testid }) => (
   <div className={`tc-card ${variant === "crit" ? "tc-card-crit" : ""}`} data-testid={testid}>
-    <div className="overline">{label}</div>
+    <div className="tc-overline">{label}</div>
     <div className="font-mono font-bold text-4xl mt-3 tracking-tight">{value}</div>
   </div>
 );
@@ -40,10 +40,11 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 md:p-8 space-y-6" data-testid="dashboard-page">
+      <div className="tc-scan mb-4"></div>
       <div className="flex items-end justify-between">
         <div>
-          <div className="overline">Live Console</div>
-          <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter mt-1">Field Status</h1>
+          <div className="tc-overline">JANRAKSHAK GSC-26 CONSOLE</div>
+          <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter mt-1">Field Intelligence</h1>
         </div>
         <Link to="/needs/new" className="btn-primary" data-testid="dash-new-request-btn">+ New Request</Link>
       </div>
@@ -65,7 +66,7 @@ export default function Dashboard() {
         <div className="md:col-span-8 tc-card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="overline">Priority Queue</div>
+              <div className="tc-overline">Priority Queue</div>
               <div className="font-heading text-xl font-bold mt-1">Top Requests — AI Ranked</div>
             </div>
             <Link to="/needs" className="btn-ghost" data-testid="dash-view-all-needs">View all</Link>
@@ -96,9 +97,8 @@ export default function Dashboard() {
 
         {/* AI Insight */}
         <div className="md:col-span-4 tc-card">
-          <div className="overline">AI Ops Advisor</div>
           <div className="font-heading text-xl font-bold mt-1 flex items-center gap-2">
-            <Sparkle size={18} weight="fill" className="text-[var(--signal-red)]" /> Claude Sonnet 4.5
+            <Sparkle size={18} weight="fill" className="text-[var(--signal-red)]" /> Janrakshak Intel
           </div>
           <button className="btn-hard w-full mt-4" onClick={askAi} disabled={aiLoading} data-testid="ai-insight-btn">
             {aiLoading ? "THINKING..." : "ASK FOR OPS BRIEFING"}

@@ -35,7 +35,7 @@ export default function ResourcesPage() {
     <div className="p-6 md:p-8 space-y-6" data-testid="resources-page">
       <div className="flex items-end justify-between">
         <div>
-          <div className="overline">Inventory</div>
+          <div className="tc-overline">Inventory</div>
           <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Resources</h1>
         </div>
         <button className="btn-primary" onClick={() => setShow(true)} data-testid="add-resource-btn">+ Add Resource</button>
@@ -43,7 +43,7 @@ export default function ResourcesPage() {
 
       {shortages.length > 0 && (
         <div className="tc-card tc-card-crit" data-testid="shortage-banner">
-          <div className="overline text-[var(--signal-red)]">SHORTAGE ALERTS</div>
+          <div className="tc-overline text-[var(--signal-red)]">SHORTAGE ALERTS</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {shortages.map(s => (
               <span key={s.id} className="tc-badge tc-badge-crit">{s.name}: {s.quantity} {s.unit}</span>
@@ -54,7 +54,7 @@ export default function ResourcesPage() {
 
       <div className="tc-card">
         <table className="w-full text-sm">
-          <thead className="text-left overline border-b border-[var(--border)]">
+          <thead className="text-left tc-overline border-b border-[var(--border)]">
             <tr><th className="py-2">Name</th><th>Category</th><th>Qty</th><th>Min</th><th>Warehouse</th><th>Status</th></tr>
           </thead>
           <tbody>
@@ -78,7 +78,7 @@ export default function ResourcesPage() {
       {show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShow(false)}>
           <form onClick={(e)=>e.stopPropagation()} onSubmit={submit} className="tc-card max-w-md w-full space-y-4" data-testid="add-resource-form">
-            <div className="overline">Add Resource</div>
+            <div className="tc-overline">Add Resource</div>
             <div><label className="tc-label">Name</label><input className="tc-input" value={form.name} onChange={(e)=>upd("name", e.target.value)} required data-testid="res-name" /></div>
             <div><label className="tc-label">Category</label>
               <select className="tc-select" value={form.category} onChange={(e)=>upd("category", e.target.value)}>
