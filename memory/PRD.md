@@ -1,4 +1,4 @@
-# HUMOPS — Humanitarian Operations Command Center
+# JANRAKSHAK — Humanitarian Operations Command Center
 
 ## Original Problem Statement
 Build a Smart Resource Allocation platform for NGOs, volunteer groups, and local communities to identify urgent needs, manage resources efficiently, and deploy volunteers where needed most. Centralized need management, AI prioritization, volunteer management with trust scores, smart matching, resource inventory, route optimization, live ops dashboard, geospatial intel with heatmaps, predictive analytics, citizen reporting, multilingual (EN/HI), emergency disaster mode, transparency/audit, analytics, multi-NGO collaboration, notifications, RBAC. Should feel like a real-time command center for humanitarian operations.
@@ -6,15 +6,12 @@ Build a Smart Resource Allocation platform for NGOs, volunteer groups, and local
 ## Tech Stack
 - **Backend**: FastAPI + MongoDB (motor) + JWT + bcrypt + Claude Sonnet 4.5 via AI API key
 - **Frontend**: React 19 + React Router 7 + Leaflet + Recharts + shadcn/ui + Tailwind + Phosphor icons
-- **Fonts**: Chivo (heading), Manrope (body), JetBrains Mono (data) — "Tactical Field Report" aesthetic
+- **Fonts**: Chivo (heading), Sora (body/data) — Proportional "Tactical Field Report" aesthetic (No Monospace)
 
 ## User Personas
-- **Admin**: Full operational control, disaster mode toggle, audit log
-- **Field Worker**: Creates/updates requests, dispatches missions, completes them
-- **Volunteer**: Registers availability, accepts missions, uploads proof-of-completion
-- **Donor**: Adds resources, views shortages & impact
-- **Analyst**: Reads audit trails, analytics
-- **Citizen**: Files reports via public portal (text + image URLs) — AI extracts structured fields
+- **Admin**: Full operational control, disaster mode toggle, audit log, and mission dispatch.
+- **User**: General portal access for filing reports and monitoring community needs.
+- **Volunteer**: Registers availability, accepts missions, and uploads proof-of-completion.
 
 ## Core Requirements (static)
 Need management · AI prioritization · Volunteer matching · Resource inventory · Missions · Citizen reporting · Geospatial map · Analytics · Disaster mode · RBAC · Multilingual (EN/HI) · Audit trail · Proof-of-completion

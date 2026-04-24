@@ -2,7 +2,7 @@
   "theme_and_archetype": {
     "theme": "light",
     "archetype": "Archetype 4 (Swiss & High-Contrast)",
-    "description": "Tactical Field Report / Humanitarian Command Center. A blend of rigid, high-contrast structural elements for clarity, warmed up by organic neutral base colors (bone white/sage) to maintain humanity. No generic tech-SaaS blues or AI purple gradients.",
+    "description": "Janrakshak Tactical Field Report / Humanitarian Command Center. A blend of rigid, high-contrast structural elements for clarity, warmed up by organic neutral base colors (bone white/sage) to maintain humanity. No generic tech-SaaS blues or AI purple gradients.",
     "emotional_tone": "Urgent, transparent, authoritative, yet compassionate and grounded."
   },
   "color_palette": {
@@ -41,16 +41,16 @@
   "typography": {
     "fonts": {
       "heading": "Chivo",
-      "body": "Manrope",
-      "mono": "JetBrains Mono"
+      "body": "Sora",
+      "mono": "Sora"
     },
     "rules": {
       "h1": "text-4xl sm:text-5xl font-black tracking-tighter leading-none text-left",
       "h2": "text-2xl sm:text-3xl font-bold tracking-tight text-left",
       "h3": "text-xl font-semibold tracking-tight text-left",
-      "body": "text-base leading-relaxed",
-      "labels_overlines": "font-mono text-xs uppercase tracking-[0.2em] font-medium text-secondary",
-      "numbers_metrics": "font-mono font-bold tracking-tight"
+      "body": "text-base leading-relaxed font-body",
+      "labels_overlines": "font-body text-xs uppercase tracking-[0.2em] font-bold text-secondary tc-overline",
+      "numbers_metrics": "font-body font-bold tracking-tight tabular-nums"
     },
     "anti_patterns": "DO NOT use Inter, Space Grotesk, Roboto. Avoid centered text for long paragraphs or dense data."
   },
@@ -99,7 +99,7 @@
       },
       "gallery_relief_2": {
         "url": "https://images.unsplash.com/photo-1677128912094-36d988ce198b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwyfHx2b2x1bnRlZXIlMjByZWxpZWYlMjBmb29kJTIwZGlzdHJpYnV0aW9ufGVufDB8fHx8MTc3NzAyNDY4Mnww&ixlib=rb-4.1.0&q=85",
-        "description": "Proof of completion / Field distribution"
+        "description": "Janrakshak Operations / Field distribution"
       },
       "drone_view_disaster": {
         "url": "https://images.pexels.com/photos/11776598/pexels-photo-11776598.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
@@ -120,6 +120,6 @@
     "Implement the 'Control Room' grid approach: do not leave empty whitespace between cards, use consistent gap-4 or gap-6 and force columns to fill available height.",
     "For the disaster mode toggle, swap the entire palette to a dark mode with #E63946 (Red) borders and stark white text to signal critical urgency.",
     "Do NOT use transparent navigation headers. Ensure all toolbars and navigation elements have a solid background.",
-    "Adhere to the typography rules: Chivo for headings, Manrope for body, JetBrains Mono for all numerical data, scores, and timestamps."
+    "Adhere to the typography rules: Chivo for headings, Sora for body, Sora (with tabular-nums) for all numerical data, scores, and timestamps."
   ]
 }
