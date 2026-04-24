@@ -1,53 +1,59 @@
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import "@/index.css";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import { Toaster } from "sonner";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { I18nProvider } from "@/context/I18nContext";
+import { DisasterProvider } from "@/context/DisasterContext";
+import AppShell from "@/components/AppShell";
+import LoginPage from "@/pages/Login";
+import RegisterPage from "@/pages/Register";
+import LandingPage from "@/pages/Landing";
+import Dashboard from "@/pages/Dashboard";
+import NeedsPage from "@/pages/Needs";
+import NewNeedPage from "@/pages/NewNeed";
+import NeedDetail from "@/pages/NeedDetail";
+import VolunteersPage from "@/pages/Volunteers";
+import ResourcesPage from "@/pages/Resources";
+import MapPage from "@/pages/MapView";
+import AnalyticsPage from "@/pages/Analytics";
+import CitizenPage from "@/pages/Citizen";
+import MissionsPage from "@/pages/Missions";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
+const PrivateRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 font-mono">LOADING…</div>;
+  if (!user) return <Navigate to="/login" replace />;
+  return <AppShell>{children}</AppShell>;
 };
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <I18nProvider>
+      <AuthProvider>
+        <DisasterProvider>
+          <BrowserRouter>
+            <Toaster position="top-right" theme="light" />
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/citizen" element={<CitizenPage />} />
+              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/needs" element={<PrivateRoute><NeedsPage /></PrivateRoute>} />
+              <Route path="/needs/new" element={<PrivateRoute><NewNeedPage /></PrivateRoute>} />
+              <Route path="/needs/:id" element={<PrivateRoute><NeedDetail /></PrivateRoute>} />
+              <Route path="/volunteers" element={<PrivateRoute><VolunteersPage /></PrivateRoute>} />
+              <Route path="/resources" element={<PrivateRoute><ResourcesPage /></PrivateRoute>} />
+              <Route path="/map" element={<PrivateRoute><MapPage /></PrivateRoute>} />
+              <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
+              <Route path="/missions" element={<PrivateRoute><MissionsPage /></PrivateRoute>} />
+            </Routes>
+          </BrowserRouter>
+        </DisasterProvider>
+      </AuthProvider>
+    </I18nProvider>
   );
 }
 

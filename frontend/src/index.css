@@ -1,115 +1,243 @@
+@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;700;800;900&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import 'leaflet/dist/leaflet.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bone: #F6F5F2;
+  --bone-alt: #EBE9E4;
+  --ink: #111213;
+  --ink-soft: #5C5E60;
+  --ink-muted: #8A8D91;
+  --signal-red: #E63946;
+  --signal-red-dk: #C02D3A;
+  --sage: #2A3D31;
+  --sage-dk: #1C2921;
+  --amber: #D97706;
+  --success: #1B4332;
+  --info: #1E3A8A;
+  --border: #D1CFCA;
+  --border-strong: #111213;
+  --dark-surface: #1A1B1C;
+}
+
+html, body, #root { height: 100%; }
+
 body {
-    margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  background: var(--bone);
+  color: var(--ink);
+  font-family: 'Manrope', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+.font-heading { font-family: 'Chivo', sans-serif; letter-spacing: -0.02em; }
+.font-body    { font-family: 'Manrope', sans-serif; }
+.font-mono    { font-family: 'JetBrains Mono', monospace; }
+
+/* Tactical overline */
+.overline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+/* Sharp card */
+.tc-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 24px;
+  transition: background 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
+}
+.tc-card:hover { border-color: var(--ink); }
+
+.tc-card-crit {
+  border-left: 3px solid var(--signal-red);
+}
+
+/* Offset solid shadow button */
+.btn-hard {
+  background: var(--ink);
+  color: var(--bone);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  padding: 12px 20px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.btn-hard:hover { background: var(--signal-red); border-color: var(--signal-red); transform: translate(-2px,-2px); box-shadow: 4px 4px 0px var(--ink); }
+
+.btn-primary {
+  background: var(--signal-red);
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  padding: 12px 20px;
+  border: 1px solid var(--signal-red);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 150ms ease-out;
+}
+.btn-primary:hover { background: var(--signal-red-dk); border-color: var(--signal-red-dk); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  padding: 12px 20px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.btn-ghost:hover { background: var(--ink); color: var(--bone); }
+
+/* Input */
+.tc-input, .tc-select, .tc-textarea {
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 10px 12px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  transition: border-color 120ms ease;
+}
+.tc-input:focus, .tc-select:focus, .tc-textarea:focus {
+  outline: none;
+  border-color: var(--ink);
+  border-width: 2px;
+  padding: 9px 11px;
+}
+.tc-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-soft);
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* Badges */
+.tc-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+.tc-badge-crit  { background: var(--signal-red); color: #fff; }
+.tc-badge-high  { background: #F59E0B; color: #111; }
+.tc-badge-mon   { background: #3B82F6; color: #fff; }
+.tc-badge-res   { background: #10B981; color: #fff; }
+.tc-badge-outl  { background: transparent; color: var(--ink); border-color: var(--ink); }
+
+/* Tabs underline */
+.tc-tab {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 10px 0;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+.tc-tab.active { color: var(--ink); border-color: var(--ink); font-weight: 700; }
+
+/* Grid lines accent */
+.tc-gridline {
+  background-image: linear-gradient(to right, rgba(17,18,19,0.04) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(17,18,19,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Scanning loader */
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.tc-scan {
+  position: relative; overflow: hidden; height: 2px; background: var(--border);
+}
+.tc-scan::after {
+  content: ''; position: absolute; top: 0; left: 0; height: 100%; width: 30%;
+  background: var(--signal-red);
+  animation: scan 1.2s linear infinite;
+}
+
+/* Disaster mode body */
+body.disaster-mode {
+  background: #1A1B1C;
+  color: #F6F5F2;
+}
+body.disaster-mode .tc-card { background: #26272A; border-color: #E63946; color: #F6F5F2; }
+body.disaster-mode .tc-card:hover { border-color: #fff; }
+body.disaster-mode .tc-input, body.disaster-mode .tc-select, body.disaster-mode .tc-textarea { background: #1A1B1C; color: #fff; border-color: #40424A; }
+body.disaster-mode .btn-hard { background: #E63946; border-color: #E63946; color: #fff; }
+body.disaster-mode .btn-ghost { color: #F6F5F2; border-color: #F6F5F2; }
+body.disaster-mode .btn-ghost:hover { background: #E63946; border-color: #E63946; color: #fff; }
+body.disaster-mode .overline, body.disaster-mode .tc-label { color: #BEBFC2; }
+body.disaster-mode .text-inkmuted { color: #BEBFC2 !important; }
+body.disaster-mode .bg-bone { background: #1A1B1C !important; }
+
+/* Leaflet tile filter — tactical */
+.leaflet-tile-pane { filter: grayscale(0.5) contrast(1.05); }
+body.disaster-mode .leaflet-tile-pane { filter: grayscale(1) brightness(0.65) contrast(1.2); }
+.leaflet-container { background: #E8E6E1; border: 1px solid var(--border); }
+body.disaster-mode .leaflet-container { background: #0E0F10; border-color: #E63946; }
+
+/* shadcn overrides */
+@layer base {
+  :root {
+    --background: 40 18% 96%;
+    --foreground: 220 6% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 6% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 6% 8%;
+    --primary: 220 6% 8%;
+    --primary-foreground: 40 18% 96%;
+    --secondary: 40 10% 90%;
+    --secondary-foreground: 220 6% 8%;
+    --muted: 40 10% 92%;
+    --muted-foreground: 220 4% 42%;
+    --accent: 0 75% 57%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 57%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 36 10% 80%;
+    --input: 36 10% 80%;
+    --ring: 220 6% 8%;
+    --radius: 2px;
+  }
 }
 
 @layer base {
-    :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-    }
-}
-
-@layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
-}
-
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
-
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
 }
