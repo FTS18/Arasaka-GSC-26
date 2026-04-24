@@ -1,0 +1,125 @@
+{
+  "theme_and_archetype": {
+    "theme": "light",
+    "archetype": "Archetype 4 (Swiss & High-Contrast)",
+    "description": "Tactical Field Report / Humanitarian Command Center. A blend of rigid, high-contrast structural elements for clarity, warmed up by organic neutral base colors (bone white/sage) to maintain humanity. No generic tech-SaaS blues or AI purple gradients.",
+    "emotional_tone": "Urgent, transparent, authoritative, yet compassionate and grounded."
+  },
+  "color_palette": {
+    "background": {
+      "page": "#F6F5F2",
+      "surface": "#FFFFFF",
+      "surface_alt": "#EBE9E4",
+      "dark_surface": "#1A1B1C"
+    },
+    "text": {
+      "primary": "#111213",
+      "secondary": "#5C5E60",
+      "muted": "#8A8D91",
+      "inverse": "#F6F5F2"
+    },
+    "brand_accents": {
+      "primary": "#E63946",
+      "primary_hover": "#C02D3A",
+      "secondary": "#2A3D31",
+      "secondary_hover": "#1C2921",
+      "alert": "#D97706",
+      "success": "#1B4332",
+      "info": "#1E3A8A"
+    },
+    "status": {
+      "critical": "#E63946",
+      "high_priority": "#F59E0B",
+      "monitoring": "#3B82F6",
+      "resolved": "#10B981"
+    },
+    "borders": {
+      "default": "#D1CFCA",
+      "focus": "#111213"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Chivo",
+      "body": "Manrope",
+      "mono": "JetBrains Mono"
+    },
+    "rules": {
+      "h1": "text-4xl sm:text-5xl font-black tracking-tighter leading-none text-left",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight text-left",
+      "h3": "text-xl font-semibold tracking-tight text-left",
+      "body": "text-base leading-relaxed",
+      "labels_overlines": "font-mono text-xs uppercase tracking-[0.2em] font-medium text-secondary",
+      "numbers_metrics": "font-mono font-bold tracking-tight"
+    },
+    "anti_patterns": "DO NOT use Inter, Space Grotesk, Roboto. Avoid centered text for long paragraphs or dense data."
+  },
+  "spacing_and_layout": {
+    "grid_system": "The 'Control Room' Grid",
+    "base_grid": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-12",
+    "gaps": "gap-4 md:gap-6",
+    "padding_philosophy": "Generous spacing. p-6 or p-8 inside bordered containers.",
+    "alignment": "Strictly left-aligned optical alignment. Asymmetrical hierarchy where main map or priority feed spans 8 columns, while secondary stats span 4 columns.",
+    "borders_and_shadows": {
+      "radius": "rounded-none or max rounded-sm (2px/4px)",
+      "shadows": "Avoid soft drop shadows. Use hard 1px borders (border-collapse look) or solid offset shadows (4px 4px 0px rgba(17,18,19,1)) for interactive elements.",
+      "surface_strategy": "Grid Borders: Expose the skeleton. Data-heavy sections should have visible borders to mimic tactical printed reports."
+    }
+  },
+  "components": {
+    "shadcn_overrides": {
+      "card": "Remove default shadow. Use 1px solid border (border-borders-default), rounded-sm, p-6. For urgent cards, apply a 2px left border using status colors.",
+      "button": "Primary: Solid #E63946, zero radius, uppercase font-mono tracking-wide. Secondary: Outline with transparent bg, text-primary, border-primary.",
+      "badge": "Sharp corners, font-mono text-xs. Map to status colors. Never use generic pastel pills.",
+      "table": "Dense padding (py-2 px-3), mono font for numerical columns, left aligned headers.",
+      "tabs": "Underline style only, no pill backgrounds. Bold text for active tab."
+    },
+    "specific_ui_elements": {
+      "live_map": "Leaflet container spanning full height/width of its grid area. Apply CSS filter to tiles (e.g., grayscale, high contrast) or use CartoDB Positron for a stark, tactical look. Heatmaps should use red/orange/yellow spectrum without smooth blurring—keep data points slightly pixelated/clustered.",
+      "prioritization_feed": "List UI with strict hierarchy. Right-side column for AI scores (using JetBrains Mono), left-side for descriptive text.",
+      "forms": "Left-aligned labels. Input fields with sharp 1px borders, focus state expands border to 2px black. No placeholder text, use explicit labels."
+    }
+  },
+  "motion_and_interaction": {
+    "hover_states": "Hard background color flips. e.g., Hovering a secondary card changes background to #111213 and text to #F6F5F2.",
+    "transitions": "Fast and snappy. transition-all duration-150 ease-out.",
+    "loading": "Use mono text 'GATHERING INTEL...' or an ASCII/Grid scanning effect instead of standard spinners. No bouncy dots."
+  },
+  "media_and_assets": {
+    "icons": "Phosphor Icons (Duotone or Bold weight) to provide a solid, legible aesthetic on dense dashboards.",
+    "image_style": "Documentary, high-contrast photography. Desaturated backgrounds with vibrant focal points (like orange vests).",
+    "image_urls": {
+      "hero_background": {
+        "url": "https://images.pexels.com/photos/7634479/pexels-photo-7634479.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Folded paper contour map texture to be used as a subtle, low-opacity background for the login or hero section."
+      },
+      "gallery_relief_1": {
+        "url": "https://images.unsplash.com/photo-1593113646773-028c64a8f1b8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwxfHx2b2x1bnRlZXIlMjByZWxpZWYlMjBmb29kJTIwZGlzdHJpYnV0aW9ufGVufDB8fHx8MTc3NzAyNDY4Mnww&ixlib=rb-4.1.0&q=85",
+        "description": "Proof of completion / Volunteer operations (Boxes of supplies)"
+      },
+      "gallery_relief_2": {
+        "url": "https://images.unsplash.com/photo-1677128912094-36d988ce198b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwyfHx2b2x1bnRlZXIlMjByZWxpZWYlMjBmb29kJTIwZGlzdHJpYnV0aW9ufGVufDB8fHx8MTc3NzAyNDY4Mnww&ixlib=rb-4.1.0&q=85",
+        "description": "Proof of completion / Field distribution"
+      },
+      "drone_view_disaster": {
+        "url": "https://images.pexels.com/photos/11776598/pexels-photo-11776598.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Drone shot of rescue operations to be used in disaster mode toggles or emergency banners."
+      },
+      "volunteer_portrait": {
+        "url": "https://images.pexels.com/photos/6646953/pexels-photo-6646953.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Leaderboard avatar or volunteer profile shot."
+      }
+    }
+  },
+  "testing_requirements": {
+    "attributes": "All interactive and key informational elements MUST include a `data-testid` attribute (e.g., `data-testid=\"submit-incident-button\"`)."
+  },
+  "instructions_to_main_agent": [
+    "Ensure `react-leaflet` and `leaflet` are installed for mapping.",
+    "Install `@phosphor-icons/react` for iconography.",
+    "Implement the 'Control Room' grid approach: do not leave empty whitespace between cards, use consistent gap-4 or gap-6 and force columns to fill available height.",
+    "For the disaster mode toggle, swap the entire palette to a dark mode with #E63946 (Red) borders and stark white text to signal critical urgency.",
+    "Do NOT use transparent navigation headers. Ensure all toolbars and navigation elements have a solid background.",
+    "Adhere to the typography rules: Chivo for headings, Manrope for body, JetBrains Mono for all numerical data, scores, and timestamps."
+  ]
+}
