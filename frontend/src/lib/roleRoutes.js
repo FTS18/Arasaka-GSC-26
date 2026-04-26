@@ -1,5 +1,5 @@
 export function getDashboardPathForRole(role) {
-  if (role === "admin" || role === "field_worker" || role === "analyst") {
+  if (role === "admin") {
     return "/dashboard/admin";
   }
   if (role === "volunteer") {
