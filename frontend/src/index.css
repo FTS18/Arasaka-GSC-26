@@ -7,8 +7,8 @@
 :root {
   --bone: #F6F5F2;
   --bone-alt: #EBE9E4;
-  --ink: #111213;
-  --ink-soft: #444648;
+  --ink: #2a2928;
+  --ink-soft: #5a5955;
   --ink-muted: #8A8D91;
   --signal-red: #E63946;
   --signal-red-dk: #C02D3A;
@@ -20,8 +20,8 @@
   --success: #1B4332;
   --info: #1E3A8A;
   --border: #D1CFCA;
-  --border-strong: #111213;
-  --dark-surface: #1A1B1C;
+  --border-strong: #4a4947;
+  --dark-surface: #2a2928;
 }
 
 body.dark {
@@ -403,7 +403,15 @@ body {
   }
 }
 
-/* Scanning loader removed as per overline removal request */
+/* Utility: Hide Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 /* Infinite Marquee */
 .tc-marquee-container {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { toast } from "sonner";
 import { NavigationArrow, Camera, CheckCircle, Warning, MapPin, Download } from "@phosphor-icons/react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
@@ -31,6 +31,7 @@ const Stat = ({ label, value, variant }) => (
 
 export default function VolunteerDashboardPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [missions, setMissions] = useState([]);
   const [needs, setNeeds] = useState([]);
   const [stats, setStats] = useState(null);
@@ -136,23 +137,23 @@ export default function VolunteerDashboardPage() {
   if (!stats) return <div className="p-8 font-mono text-xs tracking-widest animate-pulse">Loading field data...</div>;
 
   return (
-    <div className="p-6 md:p-8 space-y-8" data-testid="volunteer-dashboard-page">
+    <div className="p-4 md:p-8 space-y-8 max-w-full overflow-x-hidden" data-testid="volunteer-dashboard-page">
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <div className="tc-label">Field Operations</div>
-          <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Volunteer Dashboard</h1>
+          <div className="tc-label">{t("field_ops") || "Field Operations"}</div>
+          <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">{t("dashboard")}</h1>
         </div>
-        <div className="flex gap-2">
-          <Link to="/map" className="btn-hard !bg-white">View Operations Map</Link>
-          <Link to="/missions" className="btn-primary tracking-tighter">All Assignments</Link>
+        <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2">
+          <Link to="/map" className="btn-hard !bg-white !text-[var(--ink)] w-full sm:w-auto text-center" aria-label={t("view_map")}>{t("view_map")}</Link>
+          <Link to="/missions" className="btn-primary tracking-tighter w-full sm:w-auto text-center" aria-label={t("all_assignments")}>{t("all_assignments")}</Link>
         </div>
       </div>
 
       {/* Impact Scorecard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Stat label="Trust Score" value={profile?.trust_score ? Math.round(profile?.trust_score) : 0} variant={profile?.trust_score < 70 ? "crit" : ""} />
-        <Stat label="Completed" value={profile?.completed_missions || 0} />
-        <Stat label="Status" value={(profile?.availability || "available").charAt(0).toUpperCase() + (profile?.availability || "available").slice(1)} variant={profile?.availability !== "available" ? "crit" : ""} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 overflow-hidden" role="region" aria-label="Impact Metrics">
+        <Stat label={t("trust_score")} value={profile?.trust_score ? Math.round(profile?.trust_score) : 0} variant={profile?.trust_score < 70 ? "crit" : ""} />
+        <Stat label={t("completed")} value={profile?.completed_missions || 0} />
+        <Stat label={t("status")} value={t((profile?.availability || "available").toLowerCase()) || (profile?.availability || "available")} variant={profile?.availability !== "available" ? "crit" : ""} />
         <Stat label="Rank" value={getRank(profile)} />
         <div className="tc-card overflow-hidden bg-[var(--ink)] text-[var(--bone)] flex flex-col justify-between p-4">
           <div className="tc-label !text-[var(--signal-red)]">Recognition</div>
@@ -162,17 +163,17 @@ export default function VolunteerDashboardPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 w-full max-w-full overflow-hidden">
         {/* Mission Focus */}
-        <div className="md:col-span-7 space-y-6">
+        <div className="md:col-span-7 space-y-6 min-w-0" role="region" aria-labelledby="assignments-heading">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading text-2xl font-black tracking-tight">Active Assignments</h2>
-            <div className="tc-label">Live Updates</div>
+            <h2 className="font-heading text-2xl font-black tracking-tight" id="assignments-heading">{t("active_assignments")}</h2>
+            <div className="tc-label" aria-live="polite">Live</div>
           </div>
           
           <div className="space-y-4">
             {myMissions.filter(m => m.status !== "completed").map((m) => (
-              <div key={m.id} className="tc-card border-l-4 border-l-[var(--signal-red)] bg-white shadow-xl">
+              <div key={m.id} className="tc-card border-l-4 border-l-[var(--signal-red)] bg-white shadow-xl max-w-full overflow-hidden">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className=" font-mono text-[10px] text-[var(--ink-muted)] tracking-widest">Assignment ID: {m.id.slice(0, 8)}</div>
@@ -198,8 +199,9 @@ export default function VolunteerDashboardPage() {
                 <button 
                   onClick={() => markComplete(m.id)}
                   className="btn-primary w-full mt-3 py-4 font-black text-lg tracking-tighter flex items-center justify-center gap-2"
+                  aria-label={t("mark_complete")}
                 >
-                  <CheckCircle size={22} weight="bold" /> Complete Assignment
+                  <CheckCircle size={22} weight="bold" /> {t("mark_complete")}
                 </button>
               </div>
             ))}
@@ -211,14 +213,14 @@ export default function VolunteerDashboardPage() {
             )}
           </div>
 
-          <h2 className="font-heading text-2xl font-black tracking-tight pt-4">Nearby Opportunities</h2>
-          <div className="tc-card divide-y divide-[var(--border)] p-0 overflow-hidden">
+          <h2 className="font-heading text-2xl font-black tracking-tight pt-4" id="opportunities-heading">{t("nearby_opportunities")}</h2>
+          <div className="tc-card divide-y divide-[var(--border)] p-0 overflow-hidden" role="list" aria-labelledby="opportunities-heading">
             {nearbyOpportunities.map(n => (
               <div key={n.id} className="flex items-center gap-4 p-4 hover:bg-[var(--bone-alt)] transition-colors group">
                 <div className="font-mono font-bold text-[var(--signal-red)] text-lg">U{n.urgency}</div>
-                <Link to={`/needs/${n.id}`} className="flex-1 whitespace-nowrap overflow-hidden">
+                <Link to={`/needs/${n.id}`} className="flex-1 min-w-0">
                   <div className="font-bold text-sm group-hover:text-[var(--signal-red)] truncate">{n.title}</div>
-                  <div className=" text-[10px] font-mono text-[var(--ink-muted)] tracking-wider">{n.category.replace(/_/g, " ")} · {n.people_affected} affected</div>
+                  <div className=" text-[10px] font-mono text-[var(--ink-muted)] tracking-wider truncate">{n.category.replace(/_/g, " ")} · {n.people_affected} affected</div>
                 </Link>
                 <div className="flex items-center gap-3">
                    <button 
@@ -244,8 +246,8 @@ export default function VolunteerDashboardPage() {
         </div>
 
         {/* Field Briefing & Manual */}
-        <div className="md:col-span-5 space-y-6">
-          <h2 className="font-heading text-2xl font-black mb-6">Field Status</h2>
+        <div className="md:col-span-5 space-y-6 min-w-0" role="region" aria-labelledby="status-heading">
+          <h2 className="font-heading text-2xl font-black mb-6" id="status-heading">{t("status")}</h2>
           <div className="tc-table-container">
             <table className="w-full">
               <thead>

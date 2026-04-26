@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { toast } from "sonner";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
@@ -52,6 +52,7 @@ const StepAction = ({ status }) => {
 
 export default function UserDashboardPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [myNeeds, setMyNeeds] = useState([]);
   const [stats, setStats] = useState(null);
 
@@ -81,24 +82,22 @@ export default function UserDashboardPage() {
   if (!stats) return <div className="p-8 font-mono text-xs uppercase tracking-widest animate-pulse">Loading community data...</div>;
 
   return (
-    <div className="p-6 md:p-8 space-y-8" data-testid="user-dashboard-page">
+    <div className="p-4 md:p-8 space-y-8 max-w-full overflow-x-hidden" data-testid="user-dashboard-page">
       {/* Hero Section */}
-      <div className="relative overflow-hidden bg-[var(--ink)] text-[var(--bone)] p-8 md:p-12 rounded-sm">
+      <div className="relative overflow-hidden bg-[var(--ink)] text-[var(--bone)] p-8 md:p-12 rounded-sm" role="banner">
         <div className="relative z-10 max-w-3xl">
-          <div className="tc-badge tc-badge-crit mb-4">EMERGENCY RESPONSE ACTIVE</div>
-          <h1 className="font-heading text-5xl md:text-7xl font-black tracking-tighter leading-none mb-6">
-            Do you need <span className="text-[var(--signal-red)]">Immediate</span> Assistance?
+          <h1 className="font-heading text-5xl md:text-6xl font-black mb-4 tracking-tighter leading-none" id="main-title">
+            {t("help_is_near") || "Help is Near."}
           </h1>
-          <p className="text-lg text-[var(--ink-muted)] mb-8 font-medium">
-            Janrakshak connects you directly with field volunteers and relief resources. 
-            Report your need now for AI-triage and rapid dispatch.
+          <p className="text-xl md:text-2xl text-[var(--bone-alt)] mb-8 font-bold leading-tight opacity-90">
+            {t("app_name")} {t("user_hero_sub") || "connects you directly with field volunteers and relief resources."}
           </p>
-          <div className="flex gap-4">
-            <Link to="/needs/new" className="btn-primary py-4 px-8 text-lg font-black tracking-tighter">
-              + I NEED HELP NOW
+          <div className="flex flex-col sm:flex-row gap-4 text-center">
+            <Link to="/needs/new" className="btn-primary py-4 px-8 text-lg font-black tracking-tighter" aria-label={t("help_request")}>
+              + {t("i_need_help") || "I NEED HELP NOW"}
             </Link>
-            <button className="btn-hard border-[var(--ink-soft)] text-white hover:bg-white/10 py-4 px-8 text-lg font-bold">
-              VIEW SAFETY ZONES
+            <button className="btn-hard border-[var(--ink-soft)] text-white hover:bg-white/10 py-4 px-8 text-lg font-bold" aria-label={t("view_safety_zones")}>
+               {t("safety_zones") || "VIEW SAFETY ZONES"}
             </button>
           </div>
         </div>
@@ -110,19 +109,19 @@ export default function UserDashboardPage() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <Stat label="MY ACTIVE REQUESTS" value={pendingCount} variant={pendingCount > 0 ? "crit" : ""} />
-        <Stat label="RESOLVED FOR ME" value={completedCount} />
-        <Stat label="VOLUNTEERS NEARBY" value={stats.volunteers_available} />
-        <Stat label="AVG RESPONSE HRS" value={stats.avg_response_hours} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" role="region" aria-label="Incident Summary">
+        <Stat label={t("critical_needs")} value={stats?.critical_needs || 0} variant="crit" />
+        <Stat label={t("active_needs")} value={stats?.active_needs || 0} />
+        <Stat label={t("resolved")} value={stats?.resolved_needs || 0} />
+        <Stat label={t("volunteers_available")} value={stats?.active_volunteers || 0} />
       </div>
 
-      <div className="grid md:grid-cols-12 gap-8">
-        {/* Request Timeline */}
-        <div className="md:col-span-8 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full max-w-full overflow-hidden">
+        {/* Active Requests */}
+        <div className="lg:col-span-8 space-y-6 min-w-0" role="region" aria-labelledby="active-req-heading">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading text-2xl font-black tracking-tight">Active Request Tracking</h2>
-            <Link to="/needs" className="tc-label hover:text-[var(--signal-red)] transition-colors">History View →</Link>
+            <h2 className="font-heading text-2xl font-black tracking-tight" id="active-req-heading">{t("active_needs")}</h2>
+            <Link to="/needs" className="tc-label hover:text-[var(--signal-red)] transition-colors">{t("history_view")} →</Link>
           </div>
           
           <div className="grid gap-4">

@@ -35,6 +35,16 @@
       "onboarded": true,
       "name": "Field Volunteer",
       "language": "en"
+    },
+    {
+      "email": "user@janrakshakops.com",
+      "created_at": "2026-04-26T17:23:12.059521+00:00",
+      "id": "R17A54uDRIOpWWFR2dJYW3bjTBQ2",
+      "phone": "6666666666",
+      "role": "user",
+      "onboarded": true,
+      "name": "Relief User",
+      "language": "en"
     }
   ],
   "volunteers": [

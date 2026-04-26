@@ -869,6 +869,7 @@ class NeedRequest(BaseModel):
     created_by: Optional[str] = None
     assigned_volunteer_ids: List[str] = []
     mission_id: Optional[str] = None
+    field_notes: List[Dict[str, Any]] = []
     created_at: str = Field(default_factory=lambda: iso(now_utc()))
     updated_at: str = Field(default_factory=lambda: iso(now_utc()))
 
@@ -1220,11 +1221,19 @@ async def log_audit(actor: Dict[str, Any], action: str, target: str, meta: Dict[
 async def ai_insight(prompt: str, system: str = "You are a humanitarian operations advisor. Be concise, field-ready, 3-5 bullet points max.") -> str:
     if not AI_API_KEY:
         return "AI offline: configure AI_API_KEY."
+    # 🧠 Strategy 8: AI Intelligence - Using Gemini 2.5 Flash for state-of-the-art reasoning
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={AI_API_KEY}"
     payload = {
-        "system_instruction": {"parts": {"text": system}},
-        "contents": [{"parts": [{"text": prompt}]}]
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 2048,
+        }
     }
+    if system:
+        payload["system_instruction"] = {"parts": [{"text": system}]}
     
     # 📧 Pro-Max Reliability: Async Exponential Backoff
     async with httpx.AsyncClient() as client:
@@ -1245,7 +1254,7 @@ async def ai_insight(prompt: str, system: str = "You are a humanitarian operatio
                 await asyncio.sleep(1)
     return "AI Insight currently unavailable."
 
-async def ai_vision_extract(base64_img: str, mime_type: str = "image/jpeg") -> str:
+async def ai_vision_extract(base64_img: str, mime_type: str = "image/jpeg", prompt: str | None = None) -> str:
     if not AI_API_KEY: return "{}"
     
     # 🧊 AI Memoization: Generate content hash to avoid redundant API costs
@@ -1255,26 +1264,32 @@ async def ai_vision_extract(base64_img: str, mime_type: str = "image/jpeg") -> s
         logger.info(f"🧊 AI Cache Hit for image {img_hash[:8]}")
         return cached.get("result", "{}")
 
+    # 🧠 Strategy 9: Multimodal Intelligence - Gemini 2.5 Flash Survey Digitization
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={AI_API_KEY}"
-    prompt = """
-    Analyze this humanitarian crisis image. Return STRICT JSON containing:
-    {
-      "short_title": "Professional title (e.g., 'Structural collapse in Sector 17')",
-      "category": "emergency_transport|medical|food|shelter|disaster_relief",
-      "description": "Professional situational report: Describe visible details—building state, road access, and hazards—in a formal tone.",
-      "urgency": 1-5,
-      "severity": 1-5,
-      "people_affected": integer,
-      "weather_factor": 1-5,
-      "vulnerability": ["children", "elderly", "disabled", "pregnant", "none"]
-    }
-    Return ONLY JSON.
-    """
+    if not prompt:
+        prompt = """
+        Analyze this humanitarian crisis image. Return STRICT JSON containing:
+        {
+          "short_title": "Professional title (e.g., 'Structural collapse in Sector 17')",
+          "category": "emergency_transport|medical|food|shelter|disaster_relief",
+          "description": "Professional situational report: Describe visible details—building state, road access, and hazards—in a formal tone.",
+          "urgency": 1-5,
+          "severity": 1-5,
+          "people_affected": integer,
+          "weather_factor": 1-5,
+          "vulnerability": ["children", "elderly", "disabled", "pregnant", "none"]
+        }
+        Return ONLY JSON.
+        """
     payload = {
         "contents": [{"parts": [
             {"text": prompt},
             {"inline_data": {"mime_type": mime_type, "data": base64_img}}
-        ]}]
+        ]}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "response_mime_type": "application/json"
+        }
     }
     async with httpx.AsyncClient() as client:
         for attempt in range(3):
@@ -1506,6 +1521,93 @@ async def get_need(need_id: str, user=Depends(get_current_user)):
     loc = n.get("location", {})
     n["navigation_url"] = generate_navigation_url(loc.get("lat", 0), loc.get("lng", 0))
     return n
+
+
+@api_router.post("/api/needs/{need_id}/verify-proof")
+async def verify_mission_proof(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_user)):
+    """
+    🧠 Strategy 18: Intel Reliability - Using AI to verify proof of action.
+    """
+    need = await db.needs.find_one({"id": need_id})
+    if not need:
+        raise HTTPException(status_code=404, detail="Mission not found")
+    
+    img_b64 = payload.get("image")
+    if not img_b64:
+        raise HTTPException(status_code=400, detail="Missing proof image")
+
+    prompt = f"""
+    You are a humanitarian mission auditor.
+    MISSION TITLE: {need.get('title')}
+    MISSION DESC: {need.get('description')}
+    
+    Analyze the provided image which is uploaded as 'proof of completion'.
+    Return STRICT JSON:
+    {{
+      "reliability_score": 0-100,
+      "detected_items": ["water", "meds", "etc"],
+      "authenticity_justification": "Why this score? (e.g., 'Coordinates match and items are visible')"
+    }}
+    """
+    
+    analysis_raw = await ai_vision_extract(img_b64, prompt=prompt)
+    try:
+        analysis = json.loads(analysis_raw) or {}
+    except:
+        analysis = {"reliability_score": 0, "detected_items": [], "authenticity_justification": "Analysis failed"}
+        
+    await db.needs.update_one({"id": need_id}, {"$set": {"ai_verification": analysis}})
+    await log_audit(user, "AI_VERIFY_PROOF", need_id, {"score": analysis.get("reliability_score")})
+    
+    return analysis
+
+@api_router.post("/api/needs/{need_id}/transcribe-note")
+async def transcribe_audio_note(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_user)):
+    """
+    🧠 Strategy 25: Multimodal Field Notes - Transcribing audio memos using Gemini.
+    """
+    audio_b64 = payload.get("audio")
+    mime_type = payload.get("mime_type", "audio/webm")
+    if not audio_b64:
+        raise HTTPException(status_code=400, detail="Missing audio data")
+
+    prompt = """
+    Transcribe this field memo from a humanitarian responder. 
+    Then, create a 'Tactical SITREP' summary in 1-2 bullet points.
+    Return STRICT JSON:
+    {
+      "transcription": "...",
+      "summary": "..."
+    }
+    """
+    
+    # We repurpose ai_vision_extract for audio/multimodal processing
+    result_raw = await ai_vision_extract(audio_b64, mime_type=mime_type, prompt=prompt)
+    try:
+        result = json.loads(result_raw)
+    except:
+        result = {"transcription": "Transcription failed", "summary": "N/A"}
+
+    # Save to mission history
+    note = {
+        "id": str(uuid.uuid4()),
+        "volunteer_id": user.get("id"),
+        "volunteer_name": user.get("name"),
+        "timestamp": iso(now_utc()),
+        "content": result.get("summary"),
+        "full_text": result.get("transcription"),
+        "type": "voice_memo"
+    }
+    
+    await db.needs.update_one({"id": need_id}, {"$push": {"field_notes": note}})
+    await log_audit(user, "VOICE_MEMO_UPLOAD", need_id)
+
+    return note
+
+@api_router.post("/api/needs/{need_id}/evidence")
+async def upload_evidence(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_user)):
+    # ... logic for evidence upload ...
+    pass
 
 
 @api_router.patch("/needs/{need_id}")
@@ -1981,6 +2083,11 @@ async def list_missions(user=Depends(require_roles("volunteer", "admin"))):
 async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_roles("volunteer", "admin"))):
     proof_urls = body.get("proof_urls", [])
     notes = body.get("completion_notes", "")
+    
+    # 🏛️ Strategy 15: Mandatory Evidence - Verification flow enforcement
+    if not proof_urls and user["role"] == "volunteer":
+        raise HTTPException(status_code=400, detail="Tactical Verification Required: Please upload photographic proof of resolution.")
+
     m = await db.missions.find_one({"id": mid}, {"_id": 0})
     if not m:
         raise HTTPException(404, "Mission not found")
@@ -1989,7 +2096,10 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
     if user["role"] == "volunteer":
         v = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
         if not v or v["id"] not in m.get("volunteer_ids", []):
-            raise HTTPException(403, "Not authorized to complete this mission")
+            # Fallback check for user_id in volunteer_ids if id mismatch
+            if user["id"] not in m.get("volunteer_ids", []):
+                raise HTTPException(403, "Not authorized to complete this mission")
+    
     await db.missions.update_one(
         {"id": mid},
         {"$set": {"status": "completed", "proof_urls": proof_urls, "completed_at": iso(now_utc())}}
@@ -2004,21 +2114,27 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
         "actor": user["id"]
     })
 
+    needs = await db.needs.find({"id": {"$in": m["need_ids"]}}).to_list(length=100)
     await db.needs.update_many({"id": {"$in": m["need_ids"]}}, {"$set": {"status": "completed", "updated_at": iso(now_utc())}})
     
     # 🏛️ Strategy 4: Batch Writes (Efficient updates for multiple volunteers)
     batch = db.client.batch()
+    
+    # Calculate Max Urgency for Trust Bonus
+    max_urgency = max([n.get("urgency", 3) for n in needs]) if needs else 3
+    trust_increment = 1.0 + (max_urgency * 0.2) # 🏛️ Dynamic Reward Logic
+
     for vid in m.get("volunteer_ids", []):
         v_ref = db.client.collection("volunteers").document(vid)
         batch.update(v_ref, {
             "availability": "available",
             "completed_missions": firestore.Increment(1),
-            "trust_score": firestore.Increment(1.5) # Dynamic trust increment
+            "trust_score": firestore.Increment(trust_increment)
         })
     await asyncio.to_thread(batch.commit)
 
-    #  Live Impact Ticker: Track total lives saved across all needs in this mission
-    total_affected = sum(n.get("people_affected", 0) for n in (await db.needs.find({"id": {"$in": m["need_ids"]}}).to_list(length=100)))
+    #  Live Impact Ticker: Track total lives saved
+    total_affected = sum(n.get("people_affected", 0) for n in needs)
     await lives_saved_counter.increment(total_affected)
 
     # 🔥 Predictive Burn-Rate: Process logistics only when the mission successfully concludes.
@@ -2029,9 +2145,17 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
             await db.resources.update_one({"id": rid}, {"$inc": {"quantity": -qty}, "$set": {"updated_at": iso(now_utc())}})
 
     _GLOBAL_CACHE.clear()
-    await ws_manager.broadcast("janrakshak-live-update")
+    
+    # WebSocket Signal for Global Fleet
+    await ws_manager.broadcast(json.dumps({
+        "type": "mission_resolved",
+        "mission_id": mid,
+        "lives_saved": total_affected,
+        "trust_reward": trust_increment
+    }))
+    
     await log_audit(user, "mission_completed", mid, {"proof_count": len(proof_urls), "lives_saved": total_affected})
-    return {"status": "ok", "lives_saved": total_affected, "mission_id": mid}
+    return {"status": "ok", "lives_saved": total_affected, "mission_id": mid, "reward": trust_increment}
 
 
 @api_router.post("/missions/{mid}/abandon")
@@ -2259,12 +2383,15 @@ async def convert_report(rid: str, body: Dict[str, Any], user=Depends(require_ro
 
 @api_router.get("/analytics/overview")
 async def analytics_overview(user=Depends(require_roles("admin"))):
-    """📊 Tactical Synth: Pulls from 🏛️ Global Stats to minimize reads"""
-    stats = await db.metadata.find_one({"id": "global_stats"}, {"_id": 0}) or {}
-    state = await get_system_state()
+    """📊 Tactical Synth: Pulls from 🏛️ Global Stats using Parallel Dispatch"""
+    # 🏎️ Strategy 1: Parallel Fleet Fetching (O(1) latency)
+    (stats_doc, state, top_vols) = await asyncio.gather(
+        db.metadata.find_one({"id": "global_stats"}, {"_id": 0}),
+        get_system_state(),
+        db.volunteers.find({}, {"name": 1, "trust_score": 1, "completed_missions": 1}).sort("trust_score", -1).to_list(length=5)
+    )
     
-    # These are still "live" but we could cache them too
-    top_volunteers = await db.volunteers.find({}, {"name": 1, "trust_score": 1, "completed_missions": 1}).sort("trust_score", -1).to_list(length=5)
+    stats = stats_doc or {}
     
     return {
         "needs_count": stats.get("needs_count", 0),
@@ -2272,7 +2399,7 @@ async def analytics_overview(user=Depends(require_roles("admin"))):
         "volunteers_count": stats.get("volunteers_count", 0),
         "resources_count": stats.get("resources_count", 0),
         "disaster_mode": state["disaster_mode"],
-        "top_volunteers": top_volunteers,
+        "top_volunteers": top_vols,
         "needs_by_urgency": {5: stats.get("critical_needs_count", 0)},
         "resources_by_category": stats.get("resources_by_category", {}),
         "active_needs": stats.get("needs_count", 0),
@@ -2704,6 +2831,14 @@ async def get_aggregated_stats(user=Depends(require_roles("admin"))):
     """🏛️ Strategy 1: Fetch 1 document for entire dashboard"""
     stats = await db.metadata.find_one({"id": "global_stats"}, {"_id": 0})
     state = await get_system_state()
+    
+    # 🧠 Strategy 3: Real-time Operational Aggregation
+    all_res = await db.resources.find({}, {"category": 1, "quantity": 1, "_id": 0}).to_list(length=1000)
+    res_by_cat = {}
+    for r in all_res:
+        cat = r.get("category", "other")
+        res_by_cat[cat] = res_by_cat.get(cat, 0) + r.get("quantity", 0)
+
     res = stats or {
         "needs_count": 0,
         "missions_count": 0,
@@ -2711,6 +2846,7 @@ async def get_aggregated_stats(user=Depends(require_roles("admin"))):
         "resources_count": 0,
         "impact_score": 0
     }
+    res["resources_by_category"] = res_by_cat
     res["disaster_mode"] = state.get("disaster_mode", False)
     return res
 

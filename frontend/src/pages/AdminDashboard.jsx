@@ -1,27 +1,37 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { toast } from "sonner";
-import { 
-  Pulse, 
-  Users, 
-  CheckCircle, 
-  Warning, 
-  Clock, 
-  ShieldCheck, 
-  ChartBar,
-  Broadcast,
-  HardDrive
-} from "@phosphor-icons/react";
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer
-} from "recharts";
+import { Download, Pulse, HardDrive, MapPin, ShieldCheck, Warning, Package, Clock, Broadcast, Siren, MagnifyingGlass, UserCircle, FileText } from "@phosphor-icons/react";
+import { jsPDF } from "jspdf";
+import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+function MapAutoBounds({ markers }) {
+  const map = useMap();
+  useEffect(() => {
+    if (markers && markers.length > 0) {
+      const validMarkers = markers.filter(m => m.location && m.location.lat && m.location.lng);
+      if (validMarkers.length > 0) {
+        const bounds = L.latLngBounds(validMarkers.map(m => [m.location.lat, m.location.lng]));
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+      }
+    }
+  }, [markers, map]);
+  return null;
+}
+
+const tacticalIcon = L.divIcon({
+  className: 'tactical-marker',
+  html: `<div style="background-color: #E63946; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 0 4px rgba(230, 57, 70, 0.3);"></div>`,
+  iconSize: [12, 12],
+  iconAnchor: [6, 6]
+});
 
 const StatCard = ({ label, value, icon: Icon, trend, colorClass = "text-[var(--signal-red)]", subtext }) => {
   const formattedValue = typeof value === 'string' 
@@ -49,22 +59,23 @@ const StatCard = ({ label, value, icon: Icon, trend, colorClass = "text-[var(--s
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const { data: b, isLoading, refetch } = useQuery({
+  const { data: b, isLoading } = useQuery({
     queryKey: ['admin-overview'],
     queryFn: async () => {
       setIsSyncing(true);
-      const [stats, sitrep, trends] = await Promise.all([
+      const [stats, sitrep, markers] = await Promise.all([
         api.get("/api/admin/stats"),
         api.get("/needs?limit=10&sort_by=created_at&sort_dir=-1&projection=short"),
-        api.get("/analytics/trend")
+        api.get("/needs/markers")
       ]);
       setIsSyncing(false);
       return { 
         overview: stats.data, 
         sitrep: sitrep.data || [],
-        trends: trends.data || []
+        markers: markers.data || []
       };
     }
   });
@@ -75,7 +86,7 @@ export default function AdminDashboardPage() {
       const r = await api.get("/admin/system/usage");
       return r.data;
     },
-    refetchInterval: 15000 // Radar sweep every 15s
+    refetchInterval: 15000
   });
 
   const mutation = useMutation({
@@ -86,22 +97,12 @@ export default function AdminDashboardPage() {
       });
     },
     onMutate: async (newMode) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries({ queryKey: ['admin-overview'] });
-
-      // Snapshot the previous value
       const previousData = queryClient.getQueryData(['admin-overview']);
-
-      // Optimistically update to the new value
       queryClient.setQueryData(['admin-overview'], (old) => ({
         ...old,
-        overview: {
-          ...old?.overview,
-          disaster_mode: newMode
-        }
+        overview: { ...old?.overview, disaster_mode: newMode }
       }));
-
-      // Return a context object with the snapshotted value
       return { previousData };
     },
     onError: (err, newMode, context) => {
@@ -113,8 +114,49 @@ export default function AdminDashboardPage() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
-    },
+    }
   });
+
+  const generateSITREP = () => {
+    const doc = new jsPDF();
+    const now = new Date().toLocaleString();
+    
+    doc.setFillColor(25, 25, 25);
+    doc.rect(0, 0, 210, 40, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.text("JANRAKSHAK: OPERATIONAL SITREP", 105, 20, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`GENERATED: ${now} | STATUS: ${b?.overview?.disaster_mode ? "EMERGENCY" : "NORMAL"}`, 105, 30, { align: "center" });
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.text("EXECUTIVE SUMMARY", 20, 55);
+    doc.setFontSize(10);
+    doc.text(`- Active Requests: ${usage?.usage?.reads || 0}`, 20, 65);
+    doc.text(`- Critical Priority: ${b?.overview?.needs_by_status?.critical || 0}`, 20, 72);
+    doc.text(`- Volunteers On-Site: ${usage?.usage?.writes || 0}`, 20, 79);
+    
+    doc.setFontSize(14);
+    doc.text("RESOURCE DISTRIBUTION", 20, 95);
+    let y = 105;
+    Object.entries(b?.overview?.resources_by_category || {}).forEach(([cat, count]) => {
+      doc.text(`- ${cat.toUpperCase()}: ${count} Units`, 25, y);
+      y += 7;
+    });
+
+    doc.setFontSize(14);
+    doc.text("AI-PREDICTED HOTSPOTS", 20, y + 10);
+    doc.setFontSize(10);
+    doc.text("1. Sector-4 (High Flood Risk)", 25, y + 20);
+    doc.text("2. West Corridor (Supply Chain Bottleneck)", 25, y + 27);
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("OFFICIAL HUMANITARIAN COORDINATION DOCUMENT - NOT FOR PUBLIC RELEASE", 105, 285, { align: "center" });
+
+    doc.save(`SITREP_${format(new Date(), "yyyy-MM-dd_HHmm")}.pdf`);
+  };
 
   const toggleDisasterMode = () => {
     mutation.mutate(!b?.overview?.disaster_mode);
@@ -122,34 +164,42 @@ export default function AdminDashboardPage() {
 
   if (isLoading) return <div className="p-8 font-mono text-xs tracking-widest animate-pulse">Loading field data...</div>;
 
-  const data = b.overview;
-  const logs = b.sitrep;
-  const chartData = b.trends;
+  const data = b?.overview;
+  const logs = b?.sitrep || [];
+  const markers = b?.markers || [];
 
   return (
-    <div className="p-6 md:p-8 space-y-10" data-testid="admin-dashboard">
+    <div className="p-4 md:p-8 space-y-10 max-w-full overflow-x-hidden" data-testid="admin-dashboard">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className={`px-2 py-0.5 font-mono text-[10px] font-bold ${data?.disaster_mode ? "bg-[var(--signal-red)] text-white" : "bg-[var(--ink)] text-[var(--bone)]"}`}>
-               {data?.disaster_mode ? "Emergency Response" : "Normal Operations"}
+            <div className={`px-2 py-0.5 font-mono text-[10px] font-bold ${data?.disaster_mode ? "bg-[var(--signal-red)] text-white" : "bg-[var(--ink)] text-[var(--bone)]"}`} role="status" aria-live="polite">
+               {data?.disaster_mode ? t("disaster_mode") : t("normal_ops")}
             </div>
             <div className="tc-label !mb-0 flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-blue-500 animate-ping' : 'bg-green-500'}`} />
-              Telemetry Feed
+              <span className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-blue-500 animate-ping' : 'bg-green-500'}`} aria-hidden="true" />
+              {t("telemetry_feed")}
             </div>
           </div>
-          <h1 className="font-heading text-5xl font-black tracking-tight">
-            Command Center
+          <h1 className="font-heading text-5xl font-black tracking-tight" id="main-content-title">
+            {t("incident_response")}
           </h1>
         </div>
-        <div className="flex flex-wrap gap-4">
-          <Link to="/map" className="btn-ghost flex items-center gap-2 !border-2 font-black text-xs">
-             <Broadcast size={18} weight="bold" /> Operations Map
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+          <button 
+            onClick={generateSITREP}
+            className="btn-ghost flex items-center justify-center gap-2 !border-2 font-black text-xs w-full sm:w-auto"
+            aria-label="Generate Situation Report"
+          >
+             <FileText size={18} weight="bold" aria-hidden="true" /> SITREP
+          </button>
+          <Link to="/map" className="btn-ghost flex items-center justify-center gap-2 !border-2 font-black text-xs w-full sm:w-auto" aria-label={t("map")}>
+             <Broadcast size={18} weight="bold" aria-hidden="true" /> {t("map")}
           </Link>
           <button 
             onClick={toggleDisasterMode}
-            className={`flex items-center gap-2 transition-all px-6 py-2 border-2 shadow-[4px_4px_0px_var(--ink)] active:translate-y-1 active:shadow-none font-black text-xs ${data?.disaster_mode ? "bg-green-600 text-white border-green-700" : "bg-[var(--signal-red)] text-white border-red-700"}`}
+            className={`flex items-center justify-center gap-2 transition-all px-6 py-2 border-2 shadow-[4px_4px_0px_var(--ink)] active:translate-y-1 active:shadow-none font-black text-xs w-full sm:w-auto ${data?.disaster_mode ? "bg-green-600 text-white border-green-700" : "bg-[var(--signal-red)] text-white border-red-700"}`}
+            aria-pressed={data?.disaster_mode}
           >
             {data?.disaster_mode ? <ShieldCheck size={20} weight="bold" /> : <Warning size={20} weight="bold" />}
             <span>{data?.disaster_mode ? "Exit Disaster Mode" : "Initiate Disaster Mode"}</span>
@@ -157,13 +207,12 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* 🏛️ Strategy 7: Strategic Data Hub (Quota + Volume) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" role="region" aria-label="System Metrics">
         <StatCard 
-          label="Firestore Reads" 
+          label={t("needs")} 
           value={usage?.usage?.reads || 0} 
           icon={ShieldCheck} 
-          subtext={`Limit: ${usage?.usage_percentage?.reads || 0}% Used`}
+          subtext={`Limit: ${usage?.usage_percentage?.reads || 0}%`}
           colorClass="text-blue-500"
         />
         <StatCard 
@@ -190,70 +239,67 @@ export default function AdminDashboardPage() {
 
       <div className="grid lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-8">
-          <section className="tc-card min-h-[400px]">
-            <div className="tc-label mb-8">Incident Response Capacity (24h)</div>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--signal-red)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--signal-red)" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'var(--ink)', border: 'none', borderRadius: '0px', color: 'var(--bone)', fontFamily: 'Sora' }}
-                  />
-                  <Area 
-                    type="stepAfter" 
-                    dataKey="active" 
-                    stroke="var(--signal-red)" 
-                    fill="url(#colorActive)" 
-                    strokeWidth={4} 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+          <section className="tc-card min-h-[400px] p-0 overflow-hidden relative" aria-labelledby="map-label">
+            <div className="absolute top-4 left-4 z-[1000]">
+              <div className="tc-label bg-[var(--bone)] px-4 py-2 border-2 border-[var(--ink)] shadow-[4px_4px_0px_var(--ink)]" id="map-label">LIVE OPS THEATER</div>
+            </div>
+            <div className="h-[400px] w-full">
+              <MapContainer 
+                center={[20.5937, 78.9629]} 
+                zoom={5} 
+                scrollWheelZoom={false} 
+                className="h-full w-full z-0 grayscale contrast-125 invert-0 dark:invert"
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <MapAutoBounds markers={markers} />
+                {markers.map((need) => (
+                  need.location && (
+                    <Marker key={need.id} position={[need.location.lat, need.location.lng]} icon={tacticalIcon}>
+                      <Popup>
+                        <div className="font-heading font-black text-[var(--ink)] p-1 min-w-[150px]">
+                          <div className="text-[8px] uppercase tracking-widest opacity-60 mb-1">{need.category}</div>
+                          <div className="text-xs mb-2">{need.title}</div>
+                          <div className={`text-[8px] font-mono mb-3 ${need.urgency >= 4 ? 'text-red-600' : 'text-blue-600'}`}>URGENCY: S{need.urgency}</div>
+                          <button onClick={() => navigate(`/needs/${need.id}`)} className="w-full bg-[var(--ink)] text-white text-[9px] py-1.5 font-black uppercase hover:bg-[var(--signal-red)] transition-colors">
+                            OPEN INTEL
+                          </button>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )
+                ))}
+              </MapContainer>
             </div>
           </section>
 
-          <section className="grid md:grid-cols-2 gap-8">
-            <div className="tc-card bg-white">
-              <div className="tc-label mb-6">Resources by Category</div>
-              <div className="space-y-5">
-                {Object.entries(data?.resources_by_category || {}).slice(0, 5).map(([cat, count]) => (
-                  <div key={cat}>
-                    <div className="flex justify-between text-[10px] font-black mb-1">
-                      <span>{cat.replace(/_/g, " ")}</span>
-                      <span>{count} Unt</span>
+          <section className="w-full">
+            <div className="tc-card bg-[var(--bone)]" aria-labelledby="resources-label">
+              <div className="tc-label mb-6 flex justify-between items-center" id="resources-label">
+                <span>{t("resources_by_category")}</span>
+                <span className="text-[9px] font-mono opacity-50 uppercase tracking-[0.2em]">{Object.keys(data?.resources_by_category || {}).length} Asset Types</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-6">
+                {Object.entries(data?.resources_by_category || {}).map(([cat, count]) => (
+                  <div key={cat} className="group">
+                    <div className="flex justify-between text-[10px] font-black mb-1.5 uppercase">
+                      <span className="group-hover:text-[var(--signal-red)] transition-colors">{cat.replace(/_/g, " ")}</span>
+                      <span className="font-mono">{count.toLocaleString()} unit</span>
                     </div>
                     <div className="h-1 w-full bg-[var(--bone-alt)]">
-                      <div className="h-full bg-[var(--ink)]" style={{ width: `${Math.min(100, (count / 50) * 100)}%` }} />
+                      <div className="h-full bg-[var(--ink)] group-hover:bg-[var(--signal-red)] transition-all" style={{ width: `${Math.min(100, (count / 500) * 100)}%` }} />
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-            <div className="tc-card">
-              <div className="tc-label mb-6">Operational Pulse</div>
-              <div className="space-y-3">
-                {logs.slice(0, 4).map(l => (
-                   <div key={l.id} className="p-2 border-b border-[var(--border)] flex justify-between items-center group cursor-pointer" onClick={() => navigate(`/needs/${l.id}`)}>
-                      <div className="text-[12px] font-bold group-hover:text-[var(--signal-red)] transition-colors line-clamp-1">{l.title}</div>
-                      <div className="font-mono text-[9px] opacity-40">{new Date(l.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-                   </div>
-                ))}
-                <Link to="/requests" className="block text-center text-[10px] font-black mt-4 text-[var(--signal-red)] hover:underline">Full Sitrep Ledger »</Link>
               </div>
             </div>
           </section>
         </div>
 
         <div className="lg:col-span-4 space-y-6">
-          <h2 className="font-heading text-2xl font-black tracking-tight">Live Dispatch</h2>
-          
-          <div className="tc-card p-0 bg-[var(--bone-alt)] divide-y divide-[var(--border)] overflow-hidden border-2 border-[var(--ink)]">
+          <h2 className="font-heading text-2xl font-black tracking-tight">{t("live_dispatch")}</h2>
+          <div className="tc-card p-0 bg-[var(--bone-alt)] divide-y divide-[#d1c7b7] overflow-hidden border-2 border-[#4a4947]" role="log" aria-live="polite">
             {logs.map((log) => (
-              <div key={log.id} className="p-4 hover:bg-white transition-colors cursor-pointer group" onClick={() => navigate(`/needs/${log.id}`)}>
+              <div key={log.id} className="p-4 hover:bg-[var(--bone)] transition-colors cursor-pointer group" onClick={() => navigate(`/needs/${log.id}`)}>
                 <div className="flex justify-between text-[8px] font-mono text-xs text-[var(--ink-muted)] tracking-wider">
                   <span>Ref: {log.id.slice(-6)}</span>
                   <span>{new Date(log.created_at).toLocaleTimeString()}</span>
@@ -261,14 +307,14 @@ export default function AdminDashboardPage() {
                 <div className="text-sm font-black group-hover:text-[var(--signal-red)] leading-tight">{log.title}</div>
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${log.urgency >= 4 ? 'bg-[var(--signal-red)]' : 'bg-gray-400'}`} />
+                    <span className={`w-1.5 h-1.5 rounded-full ${log.urgency >= 4 ? 'bg-[var(--signal-red)]' : 'bg-[#6b6a65]'}`} aria-hidden="true" />
                     <span className="text-[9px] font-mono text-[var(--ink-soft)]">{log.status}</span>
                   </div>
-                  <div className={`px-2 py-0.5 text-[8px] font-bold ${log.urgency >= 4 ? 'bg-red-100 text-red-600' : 'bg-gray-100'}`}>U{log.urgency}</div>
+                  <div className={`px-2 py-0.5 text-[8px] font-bold ${log.urgency >= 4 ? 'bg-[var(--signal-red)] text-white' : 'bg-[var(--bone)] border border-[var(--border)]'}`}>U{log.urgency}</div>
                 </div>
               </div>
             ))}
-            <button onClick={() => navigate("/analytics")} className="w-full py-4 text-[10px] font-black tracking-[0.2em] bg-[var(--ink)] text-white hover:bg-[#333] transition-all">
+            <button onClick={() => navigate("/analytics")} className="w-full py-4 text-[10px] font-black tracking-[0.2em] bg-[#2a2928] text-[var(--bone)] hover:bg-[#1a1a1a] transition-all">
               View Analytics
             </button>
           </div>

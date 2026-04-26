@@ -35,7 +35,7 @@ export default function MissionsPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-6" data-testid="missions-page">
+    <div className="p-4 md:p-8 space-y-6 max-w-full overflow-x-hidden" data-testid="missions-page">
       <div className="flex items-end justify-between">
         <div>
           <div className="tc-label">Field Operations</div>
