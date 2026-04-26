@@ -42,6 +42,7 @@ function App() {
       <AuthProvider>
         <DisasterProvider>
           <BrowserRouter>
+            <a href="#main-content" className="skip-link">Skip to Operational Content</a>
             <Toaster position="top-right" theme="light" />
             <Routes>
               <Route path="/" element={<LandingPage />} />

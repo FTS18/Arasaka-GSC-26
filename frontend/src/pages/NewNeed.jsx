@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { api } from "@/lib/api";
+import { offlineQueue } from "@/lib/offlineQueue";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -47,9 +48,9 @@ export default function NewNeedPage() {
       </div>
       <h1 className="font-heading text-4xl font-black tracking-tighter mt-1 mb-6">New Request</h1>
 
-      <form onSubmit={submit} className="tc-card max-w-3xl space-y-5">
+      <form onSubmit={submit} className="tc-card max-w-3xl space-y-6">
         <div><label className="tc-label">Title</label><input className="tc-input" value={form.title} onChange={(e)=>upd("title", e.target.value)} required data-testid="need-title" /></div>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-2 gap-6">
           <div>
             <label className="tc-label">Category</label>
             <select className="tc-select" value={form.category} onChange={(e)=>upd("category", e.target.value)} data-testid="need-category">
@@ -65,12 +66,12 @@ export default function NewNeedPage() {
           <label className="tc-label">Description</label>
           <textarea rows="4" className="tc-textarea" value={form.description} onChange={(e)=>upd("description", e.target.value)} required data-testid="need-description" />
         </div>
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-6">
           <div><label className="tc-label">Latitude</label><input className="tc-input" value={form.lat} onChange={(e)=>upd("lat", e.target.value)} data-testid="need-lat" /></div>
           <div><label className="tc-label">Longitude</label><input className="tc-input" value={form.lng} onChange={(e)=>upd("lng", e.target.value)} data-testid="need-lng" /></div>
           <div><label className="tc-label">Address</label><input className="tc-input" value={form.address} onChange={(e)=>upd("address", e.target.value)} data-testid="need-address" /></div>
         </div>
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-6">
           <div>
             <label className="tc-label">Urgency (1-5)</label>
             <input type="range" min="1" max="5" value={form.urgency} onChange={(e)=>upd("urgency", e.target.value)} className="w-full" data-testid="need-urgency" />

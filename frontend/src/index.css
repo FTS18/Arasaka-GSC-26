@@ -36,6 +36,7 @@ body {
   color: var(--ink);
   font-family: 'Sora', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .font-heading {
@@ -51,6 +52,28 @@ body {
   font-family: 'Sora', sans-serif;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
+}
+
+/* Skip Link for Accessibility */
+.skip-link {
+  position: absolute;
+  top: -60px;
+  left: 24px;
+  background: var(--signal-red);
+  color: white;
+  padding: 12px 24px;
+  z-index: 9999;
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  transition: top 200ms cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  border: 2px solid var(--ink);
+}
+
+.skip-link:focus {
+  top: 0;
 }
 
 /* Tactical overline (Label style) */
@@ -71,14 +94,21 @@ body {
   border-radius: 0;
   padding: 24px;
   position: relative;
-  transition: all 150ms ease-out;
+  transition: all 250ms cubic-bezier(0.175, 0.885, 0.32, 1.15);
   box-shadow: 0px 0px 0px transparent;
+  will-change: transform, box-shadow;
 }
 
 .tc-card:hover {
   border-color: var(--ink);
-  transform: translate(-3px, -3px);
-  box-shadow: 6px 6px 0px var(--border);
+  transform: translate(-4px, -4px);
+  box-shadow: 8px 8px 0px var(--border);
+}
+
+.tc-card img {
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background-color: var(--bone-alt);
 }
 
 .tc-card::before,
@@ -178,11 +208,11 @@ body {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 2px;
-  padding: 10px 12px;
-  font-family: 'Manrope', sans-serif;
+  padding: 12px;
+  font-family: inherit;
   font-size: 14px;
   color: var(--ink);
-  transition: border-color 120ms ease;
+  transition: all 120ms ease;
 }
 
 .tc-input:focus,
@@ -191,7 +221,7 @@ body {
   outline: none;
   border-color: var(--ink);
   border-width: 2px;
-  padding: 9px 11px;
+  padding: 11px;
 }
 
 .tc-label {
@@ -199,10 +229,10 @@ body {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   color: var(--ink-soft);
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 /* Badges */
@@ -298,6 +328,91 @@ body {
   width: 30%;
   background: var(--signal-red);
   animation: scan 1.2s linear infinite;
+}
+
+/* Infinite Marquee */
+.tc-marquee-container {
+  display: flex;
+  overflow: hidden;
+  user-select: none;
+}
+
+.tc-marquee-content {
+  display: flex;
+  flex-shrink: 0;
+  min-width: 100%;
+  gap: 0;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (max-width: 767px) {
+  .tc-marquee-content {
+    animation: marquee 15s linear infinite;
+  }
+}
+
+/* Mobile Sticky CTA Bar */
+.tc-mobile-cta {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 1000;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0px -4px 12px rgba(0, 0, 0, 0.05);
+}
+
+body.disaster-mode .tc-mobile-cta {
+  background: var(--dark-surface);
+  border-color: var(--signal-red);
+}
+
+/* Safe Area Insets */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Skeleton Loading State */
+.tc-skeleton {
+  background: var(--bone-alt);
+  position: relative;
+  overflow: hidden;
+}
+
+.tc-skeleton::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0,
+      rgba(255, 255, 255, 0.4) 20%,
+      rgba(255, 255, 255, 0.7) 60%,
+      rgba(255, 255, 255, 0));
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Disaster mode body */

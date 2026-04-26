@@ -1,12 +1,16 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useDisaster } from "@/context/DisasterContext";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
 import { getDashboardPathForRole } from "@/lib/roleRoutes";
+import { offlineQueue, syncOfflineData } from "@/lib/offlineQueue";
 import {
   SquaresFour, Warning, Users, Package, MapTrifold, ChartLine,
   ClipboardText, SignOut, Translate, Siren, Radio,
+  WifiHigh, WifiSlash
 } from "@phosphor-icons/react";
 
 const NavItem = ({ to, icon: Icon, label, testid }) => {
@@ -34,6 +38,27 @@ export default function AppShell({ children }) {
   const { disaster_mode, disaster_reason, toggle } = useDisaster();
   const navigate = useNavigate();
   const dashboardPath = getDashboardPathForRole(user?.role);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      toast.info("Back online. Syncing pending data...");
+      const synced = await syncOfflineData({
+        needs: (data) => api.post("/needs", data)
+      });
+      if (synced > 0) toast.success(`Synced ${synced} items to command center.`);
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const canOperate = user && user.role === "admin";
 
@@ -49,7 +74,7 @@ export default function AppShell({ children }) {
           <div className="tc-overline mt-1">{t("tagline")}</div>
         </div>
 
-        <nav className="flex-1 py-3 space-y-1">
+        <nav className="flex-1 py-4 space-y-1">
           <NavItem to={dashboardPath} icon={SquaresFour} label={t("dashboard")} testid="nav-dashboard" />
           <NavItem to="/needs"     icon={Warning}     label={t("needs")} testid="nav-needs" />
           <NavItem to="/map"       icon={MapTrifold}  label={t("map")} testid="nav-map" />
@@ -88,11 +113,15 @@ export default function AppShell({ children }) {
       {/* Main */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <div className="h-14 border-b border-[var(--border)] bg-[var(--bone)] flex items-center justify-between px-6" data-testid="app-topbar">
+        <div className="h-16 border-b border-[var(--border)] bg-[var(--bone)] flex items-center justify-between px-6" data-testid="app-topbar">
           <div className="flex items-center gap-3">
             <div className="tc-overline">Telemetry</div>
-            <div className="font-mono text-xs text-[var(--ink-muted)]">28.61°N / 77.20°E</div>
-            <div className="tc-badge tc-badge-mon font-mono ml-4" data-testid="ops-status">SCANNING...</div>
+            <div className="flex items-center gap-1 font-mono text-xs text-[var(--ink-muted)]">
+              {isOnline ? <WifiHigh size={14} className="text-green-600" /> : <WifiSlash size={14} className="text-[var(--signal-red)]" />}
+              <span className="w-16">{isOnline ? "ONLINE" : "OFFLINE"}</span>
+            </div>
+            <div className="font-mono text-xs text-[var(--ink-muted)] ml-2 whitespace-nowrap">28.61°N / 77.20°E</div>
+            <div className="tc-badge tc-badge-mon font-mono ml-4 tabular-nums" data-testid="ops-status">SCANNING...</div>
             {disaster_mode && (
               <div className="flex items-center gap-2 ml-4 animate-pulse" data-testid="disaster-banner">
                 <Siren size={14} weight="fill" className="text-[var(--signal-red)]" />
@@ -118,7 +147,7 @@ export default function AppShell({ children }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        <div id="main-content" className="flex-1 overflow-auto">
           {children}
         </div>
       </main>

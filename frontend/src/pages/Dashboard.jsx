@@ -50,7 +50,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         <Stat label="CRITICAL" value={stats.critical_needs} variant="crit" testid="stat-critical" />
         <Stat label="ACTIVE REQUESTS" value={stats.active_needs} testid="stat-active" />
         <Stat label="RESOLVED" value={stats.resolved_needs} testid="stat-resolved" />

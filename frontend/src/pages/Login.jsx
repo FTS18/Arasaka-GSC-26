@@ -79,7 +79,7 @@ export default function LoginPage() {
           {[
             ["48H", "AVG RESPONSE"],
             ["AI", "PRIORITY ENGINE"],
-            ["6", "ACCESS ROLES"],
+            ["3", "PORTAL ROLES"],
           ].map(([v, l]) => (
             <div key={l}>
               <div className="text-2xl font-bold">{v}</div>
@@ -98,7 +98,7 @@ export default function LoginPage() {
             {seeding ? "PREPARING TEST CREDENTIALS..." : "Show Test Credentials"}
           </button>
 
-          <form onSubmit={submit} className="mt-8 space-y-5" data-testid="login-form">
+          <form onSubmit={submit} className="mt-8 space-y-6" data-testid="login-form">
             <div>
               <label className="tc-label">Email</label>
               <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} className="tc-input" data-testid="login-email" required />

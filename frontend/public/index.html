@@ -4,8 +4,37 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Humanitarian Operations Command Center" />
+    <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon.png" />
+    <meta name="theme-color" content="#FF0000" />
+    <meta name="description"
+        content="Janrakshak: Tactical Humanitarian Operations Command Center. Real-time need triage, volunteer dispatch, and disaster telemetry." />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://janrakshak.org/" />
+    <meta property="og:title" content="JANRAKSHAK | Tactical Humanitarian Response" />
+    <meta property="og:description"
+        content="AI-powered command center for NGOs and disaster relief teams. Faster response, smarter resource allocation." />
+    <meta property="og:image" content="%PUBLIC_URL%/favicon.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="JANRAKSHAK | Tactical Humanitarian Response" />
+    <meta property="twitter:description"
+        content="AI-powered command center for NGOs and disaster relief teams. Faster response, smarter resource allocation." />
+    <meta property="twitter:image" content="%PUBLIC_URL%/favicon.png" />
+
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>JANRAKSHAK | Tactical Humanitarian Response</title>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('%PUBLIC_URL%/sw.js')
+                    .then(reg => console.log('SW Registered', reg.scope))
+                    .catch(err => console.error('SW Registration Failed', err));
+            });
+        }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
