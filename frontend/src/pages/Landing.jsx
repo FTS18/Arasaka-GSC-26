@@ -125,8 +125,8 @@ export default function LandingPage() {
 
       <footer className="border-t border-[var(--border)] py-8">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-3">
-          <div className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-widest">JANRAKSHAK · RELIEF NETWORK</div>
-          <div className="font-mono text-xs text-[var(--ink-muted)] uppercase tracking-wider">Integrated Resource Logistics System</div>
+          <div className="font-mono text-xs text-[var(--ink-soft)] tracking-widest">JANRAKSHAK · RELIEF NETWORK</div>
+          <div className="font-mono text-xs text-[var(--ink-muted)] tracking-wider">Integrated Resource Logistics System</div>
         </div>
       </footer>
 

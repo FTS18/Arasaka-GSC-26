@@ -78,22 +78,22 @@ export default function Dashboard() {
     <div className="p-4 md:p-8 space-y-4 md:space-y-6" data-testid="dashboard-page">
       <div className="flex items-end justify-between">
         <div className="min-w-0">
-          <div className="tc-label truncate">JANRAKSHAK CONSOLE</div>
-          <h1 className="font-heading text-3xl md:text-4xl font-black tracking-tighter mt-1 truncate">Field Intelligence</h1>
+          <div className="tc-label truncate">Janrakshak Console</div>
+          <h1 className="font-heading text-3xl md:text-4xl font-black tracking-tighter mt-1 truncate">Strategic Overview</h1>
         </div>
         <Link to="/needs/new" className="btn-primary shrink-0 scale-90 md:scale-100 origin-right" data-testid="dash-new-request-btn">+ New</Link>
       </div>
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
-        <Stat label="CRITICAL" value={stats.critical_needs} variant="crit" testid="stat-critical" />
-        <Stat label="ACTIVE REQS" value={stats.active_needs} testid="stat-active" />
-        <Stat label="RESOLVED" value={stats.resolved_needs} testid="stat-resolved" />
-        <Stat label="VOLS ON-CALL" value={stats.volunteers_available} testid="stat-volunteers-available" />
-        <Stat label="IN MISSION" value={stats.missions_active} testid="stat-missions-active" />
-        <Stat label="DONE" value={stats.missions_completed} testid="stat-missions-completed" />
-        <Stat label="SHORTAGES" value={stats.resource_shortages} variant={stats.resource_shortages > 0 ? "crit" : ""} testid="stat-shortages" />
-        <Stat label="RESP (H)" value={stats.avg_response_hours} testid="stat-response" />
+        <Stat label="Critical" value={stats.critical_needs} variant="crit" testid="stat-critical" />
+        <Stat label="Active Requests" value={stats.active_needs} testid="stat-active" />
+        <Stat label="Resolved" value={stats.resolved_needs} testid="stat-resolved" />
+        <Stat label="On-Call" value={stats.volunteers_available} testid="stat-volunteers-available" />
+        <Stat label="In Mission" value={stats.missions_active} testid="stat-missions-active" />
+        <Stat label="Missions Done" value={stats.missions_completed} testid="stat-missions-completed" />
+        <Stat label="Shortages" value={stats.resource_shortages} variant={stats.resource_shortages > 0 ? "crit" : ""} testid="stat-shortages" />
+        <Stat label="Avg Resp (h)" value={stats.avg_response_hours} testid="stat-response" />
       </div>
 
       <div className="grid md:grid-cols-12 gap-6">
@@ -102,7 +102,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="tc-label">Priority Queue</div>
-              <div className="font-heading text-xl font-bold mt-1">Top Requests — AI Ranked</div>
+              <div className="font-heading text-xl font-bold mt-1">Top Requests — Impact Priority</div>
             </div>
             <Link to="/needs" className="btn-ghost" data-testid="dash-view-all-needs">View all</Link>
           </div>
@@ -126,20 +126,20 @@ export default function Dashboard() {
                 </div>
               </Link>
             ))}
-            {needs.length === 0 && <div className="py-10 text-center text-[var(--ink-soft)] font-mono text-sm">NO ACTIVE REQUESTS</div>}
+            {needs.length === 0 && <div className="py-10 text-center text-[var(--ink-soft)] font-mono text-sm">No active requests found</div>}
           </div>
         </div>
 
         {/* AI Insight */}
         <div className="md:col-span-4 tc-card">
           <div className="font-heading text-xl font-bold mt-1 flex items-center gap-2">
-            <Sparkle size={18} weight="fill" className="text-[var(--signal-red)]" /> Janrakshak Intel
+            <Sparkle size={18} weight="fill" className="text-[var(--signal-red)]" /> Field Ops Digest
           </div>
           <button className="btn-hard w-full mt-4" onClick={askAi} disabled={aiLoading} data-testid="ai-insight-btn">
-            {aiLoading ? "THINKING..." : "ASK FOR OPS BRIEFING"}
+            {aiLoading ? "Synthesizing..." : "Generate Strategic Briefing"}
           </button>
           <div className="mt-4 text-sm leading-relaxed whitespace-pre-wrap" data-testid="ai-insight-output">
-            {ai || <span className="text-[var(--ink-soft)] font-mono text-xs">Press the button for a strategic briefing based on live metrics.</span>}
+            {ai || <span className="text-[var(--ink-soft)] font-mono text-xs">Analyze current field metrics for high-impact recommendations.</span>}
           </div>
         </div>
       </div>

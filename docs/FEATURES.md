@@ -20,6 +20,8 @@ Janrakshak provides a comprehensive suite of tools designed for rapid humanitari
 
 ### Immutable Audit Logs
 -   **Transparency Engine**: Every status update, mission completion, and resource movement is logged chronologically for post-mission accountability.
+-   **Zero-Read Dashboard Acceleration**: Architectural optimization that delivers O(1) performance for dashboard telemetry using pre-calculated atomic aggregates.
+-   **Internal Usage Dashboard**: Real-time visualization of daily Firestore quota consumption vs limits.
 
 ---
 
@@ -37,6 +39,8 @@ Janrakshak provides a comprehensive suite of tools designed for rapid humanitari
 ### Secure Mobile Profile
 -   **Skill Management**: Ability to log and update medical, logistical, or specialized certifications.
 -   **Availability Status**: Toggle to signal active presence to the Command Center.
+-   **Multi-Stage Bundle Caching**: Intelligent state restoration that prioritizes LocalStorage and cached bundles over expensive network turns.
+-   **Hybrid Bot Command Interface**: Full integration with the Telegram bot for reporting and registration, supporting both Long-Polling and Webhook modes.
 
 ---
 
@@ -66,4 +70,4 @@ Janrakshak provides a comprehensive suite of tools designed for rapid humanitari
 -   Dynamic localization support (English/Hindi) to ensure accessibility for varied community demographics.
 
 ---
-*Product Features v2.6.4*
+*Product Features v2.8.0 - Tactical Ready*

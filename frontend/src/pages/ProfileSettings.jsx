@@ -9,6 +9,7 @@ export default function ProfileSettings() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -103,13 +104,42 @@ export default function ProfileSettings() {
 
   if (loading) return <div className="p-8 font-mono text-xl animate-pulse">LOADING PROFILE DATA...</div>;
 
+  const handleToggleRole = async () => {
+    if (!window.confirm(`Switch to ${user.role === "user" ? "Volunteer" : "Resident"} role?`)) return;
+    setToggling(true);
+    try {
+      const res = await api.post("/auth/toggle-role");
+      localStorage.setItem("janrakshak_token", res.data.token);
+      toast.success(res.data.message);
+      window.location.reload(); 
+    } catch (e) {
+      toast.error("Role switch failed.");
+    } finally {
+      setToggling(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="border-4 border-[var(--ink)] bg-[var(--bone)] p-6 shadow-brutal tc-card">
         <div className="mb-8">
           <div className="tc-label">Global Identity</div>
-          <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Profile & Settings</h1>
-          <p className="font-mono text-xs opacity-80 mt-2">Operator Class: <span className="uppercase font-bold tc-badge tc-badge-outl">{user?.role}</span></p>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Profile & Settings</h1>
+              <p className="font-mono text-xs opacity-80 mt-2">Operator Class: <span className="uppercase font-bold tc-badge tc-badge-outl">{user?.role}</span></p>
+            </div>
+            {user?.role !== "admin" && (
+              <button 
+                type="button" 
+                onClick={handleToggleRole}
+                disabled={toggling}
+                className="tc-btn px-4 py-2 bg-[var(--ink)] text-white text-xs font-bold uppercase hover:bg-[var(--signal-red)] transition-all"
+              >
+                {toggling ? "PROCESSING..." : `SWITCH TO ${user?.role === "user" ? "VOLUNTEER" : "RESIDENT"}`}
+              </button>
+            )}
+          </div>
         </div>
 
         <form onSubmit={handleSave} className="space-y-8">

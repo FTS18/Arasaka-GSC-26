@@ -12,7 +12,7 @@ const DEFAULT_TEST_CREDS = [
 ];
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState("admin@janrakshakops.com");
   const [password, setPassword] = useState("Admin@12345");
@@ -63,6 +63,21 @@ export default function LoginPage() {
     } finally { setLoading(false); }
   };
 
+  const submitGoogle = async () => {
+    setLoading(true);
+    try {
+      const u = await loginWithGoogle();
+      toast.success("Authenticated with Google");
+      if (!u.onboarded) {
+        nav("/onboarding");
+      } else {
+        nav(getDashboardPathForRole(u.role));
+      }
+    } catch (err) {
+      toast.error("Google Login failed");
+    } finally { setLoading(false); }
+  };
+
   return (
     <div className="min-h-screen flex tc-gridline">
       <div className="hidden md:flex w-1/2 bg-[var(--ink)] text-[var(--bone)] p-12 flex-col justify-between">
@@ -97,6 +112,17 @@ export default function LoginPage() {
           <button type="button" className="btn-ghost mt-4" onClick={seedAndOpenCreds} data-testid="open-test-creds-btn">
             {seeding ? "PREPARING TEST CREDENTIALS..." : "Show Test Credentials"}
           </button>
+
+          <div className="mt-6">
+            <button 
+              type="button" 
+              onClick={submitGoogle}
+              className="w-full flex items-center justify-center gap-2 border-2 border-[var(--ink)] p-3 font-bold hover:bg-[var(--bone-alt)] transition-all"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-5 h-5" />
+              Sign in with Google
+            </button>
+          </div>
 
           <form onSubmit={submit} className="mt-8 space-y-6" data-testid="login-form">
             <div>

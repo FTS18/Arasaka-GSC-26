@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@/index.css";
 import "@/App.css";
 import { Toaster } from "sonner";
@@ -25,12 +26,29 @@ import CitizenPage from "@/pages/Citizen";
 import MissionsPage from "@/pages/Missions";
 import VolunteerDetailPage from "@/pages/VolunteersDetail";
 import ProfileSettingsPage from "@/pages/ProfileSettings";
+import OnboardingPage from "@/pages/Onboarding";
 import { getDashboardPathForRole } from "@/lib/roleRoutes";
+
+// 🏛️ Strategy 3: Global Query Sentinel (30s StaleTime)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const PrivateRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-8 font-mono">LOADING…</div>;
   if (!user) return <Navigate to="/login" replace />;
+
+  // 🏛️ Strategy 16: Mandatory Onboarding Enforcement (Bypassed for Admins)
+  if (!user.onboarded && user.role !== "admin" && window.location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to={getDashboardPathForRole(user.role)} replace />;
@@ -46,38 +64,41 @@ const DashboardRedirect = () => {
 
 function App() {
   return (
-    <I18nProvider>
-      <AuthProvider>
-        <WebSocketProvider>
-          <DisasterProvider>
-            <BrowserRouter>
-              <a href="#main-content" className="skip-link">Skip to Operational Content</a>
-              <Toaster position="top-right" theme="light" />
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/citizen" element={<CitizenPage />} />
-                <Route path="/dashboard" element={<PrivateRoute><DashboardRedirect /></PrivateRoute>} />
-                <Route path="/dashboard/admin" element={<PrivateRoute allowedRoles={["admin"]}><AdminDashboardPage /></PrivateRoute>} />
-                <Route path="/dashboard/volunteer" element={<PrivateRoute allowedRoles={["volunteer", "admin"]}><VolunteerDashboardPage /></PrivateRoute>} />
-                <Route path="/dashboard/user" element={<PrivateRoute allowedRoles={["user", "admin"]}><UserDashboardPage /></PrivateRoute>} />
-                <Route path="/needs" element={<PrivateRoute allowedRoles={["user", "volunteer", "admin"]}><NeedsPage /></PrivateRoute>} />
-                <Route path="/needs/new" element={<PrivateRoute allowedRoles={["user", "volunteer", "admin"]}><NewNeedPage /></PrivateRoute>} />
-                <Route path="/needs/:id" element={<PrivateRoute allowedRoles={["user", "volunteer", "admin"]}><NeedDetail /></PrivateRoute>} />
-                <Route path="/volunteers" element={<PrivateRoute allowedRoles={["volunteer", "admin"]}><VolunteersPage /></PrivateRoute>} />
-                <Route path="/volunteers/:id" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><VolunteerDetailPage /></PrivateRoute>} />
-                <Route path="/resources" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><ResourcesPage /></PrivateRoute>} />
-                <Route path="/map" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><MapPage /></PrivateRoute>} />
-                <Route path="/analytics" element={<PrivateRoute allowedRoles={["admin"]}><AnalyticsPage /></PrivateRoute>} />
-                <Route path="/missions" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><MissionsPage /></PrivateRoute>} />
-                <Route path="/settings" element={<PrivateRoute allowedRoles={["admin", "volunteer", "user"]}><ProfileSettingsPage /></PrivateRoute>} />
-              </Routes>
-            </BrowserRouter>
-          </DisasterProvider>
-        </WebSocketProvider>
-      </AuthProvider>
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <AuthProvider>
+          <WebSocketProvider>
+            <DisasterProvider>
+              <BrowserRouter>
+                <a href="#main-content" className="skip-link">Skip to Operational Content</a>
+                <Toaster position="top-right" theme="light" />
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/citizen" element={<CitizenPage />} />
+                  <Route path="/dashboard" element={<PrivateRoute><DashboardRedirect /></PrivateRoute>} />
+                  <Route path="/dashboard/admin" element={<PrivateRoute allowedRoles={["admin"]}><AdminDashboardPage /></PrivateRoute>} />
+                  <Route path="/dashboard/volunteer" element={<PrivateRoute allowedRoles={["volunteer", "admin"]}><VolunteerDashboardPage /></PrivateRoute>} />
+                  <Route path="/dashboard/user" element={<PrivateRoute allowedRoles={["user", "admin"]}><UserDashboardPage /></PrivateRoute>} />
+                  <Route path="/needs" element={<PrivateRoute allowedRoles={["user", "volunteer", "admin"]}><NeedsPage /></PrivateRoute>} />
+                  <Route path="/needs/new" element={<PrivateRoute allowedRoles={["user", "volunteer", "admin"]}><NewNeedPage /></PrivateRoute>} />
+                  <Route path="/needs/:id" element={<PrivateRoute allowedRoles={["user", "volunteer", "admin"]}><NeedDetail /></PrivateRoute>} />
+                  <Route path="/volunteers" element={<PrivateRoute allowedRoles={["volunteer", "admin"]}><VolunteersPage /></PrivateRoute>} />
+                  <Route path="/volunteers/:id" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><VolunteerDetailPage /></PrivateRoute>} />
+                  <Route path="/resources" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><ResourcesPage /></PrivateRoute>} />
+                  <Route path="/map" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><MapPage /></PrivateRoute>} />
+                  <Route path="/analytics" element={<PrivateRoute allowedRoles={["admin"]}><AnalyticsPage /></PrivateRoute>} />
+                  <Route path="/missions" element={<PrivateRoute allowedRoles={["admin", "volunteer"]}><MissionsPage /></PrivateRoute>} />
+                  <Route path="/settings" element={<PrivateRoute allowedRoles={["admin", "volunteer", "user"]}><ProfileSettingsPage /></PrivateRoute>} />
+                  <Route path="/onboarding" element={<PrivateRoute><OnboardingPage /></PrivateRoute>} />
+                </Routes>
+              </BrowserRouter>
+            </DisasterProvider>
+          </WebSocketProvider>
+        </AuthProvider>
+      </I18nProvider>
+    </QueryClientProvider>
   );
 }
 

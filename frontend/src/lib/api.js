@@ -1,4 +1,5 @@
 import axios from "axios";
+import { queueRequest } from "./idb";
 
 const rawBackendUrl = process.env.REACT_APP_BACKEND_URL;
 const BACKEND_URL = (rawBackendUrl && rawBackendUrl !== "undefined"
@@ -17,8 +18,18 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
+    // 🏛️ Strategy: Offline Delta-Sync
+    // If it's a mutation and we're likely offline or network failed
+    const isMutation = ['post', 'put', 'delete', 'patch'].includes(err.config?.method?.toLowerCase());
+    const isNetworkError = !err.response && !window.navigator.onLine;
+
+    if (isMutation && isNetworkError) {
+      queueRequest(err.config.url, err.config.method, err.config.data);
+      return Promise.resolve({ data: { _offline: true }, status: 202 });
+    }
+
     if (err?.response?.status === 401) {
-      // do not force redirect; let caller handle
+      // let caller handle
     }
     return Promise.reject(err);
   }

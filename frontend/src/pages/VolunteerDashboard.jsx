@@ -97,11 +97,11 @@ export default function VolunteerDashboardPage() {
   };
 
   const getRank = (p) => {
-    if (!p) return "ROOKIE";
-    if (p.completed_missions >= 20) return "FIELD COMMANDER";
-    if (p.completed_missions >= 10) return "VETERAN RESPONDER";
-    if (p.completed_missions >= 5) return "LOGISTICS EXPERT";
-    return "FIRST RESPONDER";
+    if (!p) return "Rookie";
+    if (p.completed_missions >= 20) return "Field Commander";
+    if (p.completed_missions >= 10) return "Veteran Responder";
+    if (p.completed_missions >= 5) return "Logistics Expert";
+    return "First Responder";
   };
 
   const generateCertificate = () => {
@@ -133,7 +133,7 @@ export default function VolunteerDashboardPage() {
     doc.save(`Janrakshak_Certificate_${profile.name}.pdf`);
   };
 
-  if (!stats) return <div className="p-8 font-mono text-xs uppercase tracking-widest animate-pulse">Loading field data...</div>;
+  if (!stats) return <div className="p-8 font-mono text-xs tracking-widest animate-pulse">Loading field data...</div>;
 
   return (
     <div className="p-6 md:p-8 space-y-8" data-testid="volunteer-dashboard-page">
@@ -143,20 +143,21 @@ export default function VolunteerDashboardPage() {
           <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Volunteer Dashboard</h1>
         </div>
         <div className="flex gap-2">
-          <Link to="/map" className="btn-hard !bg-white">VIEW OPERATIONS MAP</Link>
-          <Link to="/missions" className="btn-primary tracking-tighter">ALL ASSIGNMENTS</Link>
+          <Link to="/map" className="btn-hard !bg-white">View Operations Map</Link>
+          <Link to="/missions" className="btn-primary tracking-tighter">All Assignments</Link>
         </div>
       </div>
 
       {/* Impact Scorecard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-        <Stat label="TRUST SCORE" value={profile?.trust_score ? Math.round(profile?.trust_score) : 0} variant={profile?.trust_score < 70 ? "crit" : ""} />
-        <Stat label="COMPLETED" value={profile?.completed_missions || 0} />
-        <Stat label="RANK / TITLE" value={getRank(profile)} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Stat label="Trust Score" value={profile?.trust_score ? Math.round(profile?.trust_score) : 0} variant={profile?.trust_score < 70 ? "crit" : ""} />
+        <Stat label="Completed" value={profile?.completed_missions || 0} />
+        <Stat label="Status" value={(profile?.availability || "available").charAt(0).toUpperCase() + (profile?.availability || "available").slice(1)} variant={profile?.availability !== "available" ? "crit" : ""} />
+        <Stat label="Rank" value={getRank(profile)} />
         <div className="tc-card overflow-hidden bg-[var(--ink)] text-[var(--bone)] flex flex-col justify-between p-4">
-          <div className="tc-label !text-[var(--signal-red)]">RECOGNITION</div>
-          <button onClick={generateCertificate} className="btn-hard !bg-[var(--signal-red)] !text-[var(--ink)] w-full mt-4 !py-3 flex items-center justify-center gap-2">
-            <Download weight="bold" size={16} /> CERTIFICATE
+          <div className="tc-label !text-[var(--signal-red)]">Recognition</div>
+          <button onClick={generateCertificate} className="btn-hard !bg-[var(--signal-red)] !text-[var(--ink)] w-full mt-2 !py-2 flex items-center justify-center gap-2 text-xs">
+            <Download weight="bold" size={14} /> Certificate
           </button>
         </div>
       </div>
@@ -174,10 +175,10 @@ export default function VolunteerDashboardPage() {
               <div key={m.id} className="tc-card border-l-4 border-l-[var(--signal-red)] bg-white shadow-xl">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <div className="font-mono text-[10px] text-[var(--ink-muted)] uppercase tracking-widest">ASSIGNMENT ID: {m.id.slice(0, 8)}</div>
-                    <div className="font-heading font-extrabold text-2xl mt-1">{m.need_ids.length} URGENT REQUESTS</div>
+                    <div className=" font-mono text-[10px] text-[var(--ink-muted)] tracking-widest">Assignment ID: {m.id.slice(0, 8)}</div>
+                    <div className="font-heading font-extrabold text-2xl mt-1">{m.need_ids.length} Urgent Requests</div>
                   </div>
-                  <span className="tc-badge tc-badge-crit animate-pulse">IN PROGRESS</span>
+                  <span className="tc-badge text-[var(--signal-red)]">In Progress</span>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -186,10 +187,10 @@ export default function VolunteerDashboardPage() {
                     target="_blank" rel="noreferrer"
                     className="btn-hard py-4 font-black flex items-center justify-center gap-2"
                   >
-                    <NavigationArrow size={20} weight="fill" /> NAVIGATE
+                    <NavigationArrow size={20} weight="fill" /> Navigate
                   </a>
-                  <label className="btn-hard bg-white py-4 font-black flex items-center justify-center gap-2 cursor-pointer border-2 hover:bg-[var(--ink)] hover:text-[var(--bone)] transition-colors">
-                    <Camera size={20} weight="bold" /> ADD PROOF
+                  <label className="btn-hard bg-white py-4 font-black flex items-center justify-center gap-2 cursor-pointer border-2 hover:bg-[var(--ink)] hover:text-[var(--bone)] transition-all">
+                    <Camera size={20} weight="bold" /> Add Proof
                     <input type="file" className="hidden" onChange={(e) => handleUpload(m.id, e)} accept="image/*" capture="environment" />
                   </label>
                 </div>
@@ -198,13 +199,13 @@ export default function VolunteerDashboardPage() {
                   onClick={() => markComplete(m.id)}
                   className="btn-primary w-full mt-3 py-4 font-black text-lg tracking-tighter flex items-center justify-center gap-2"
                 >
-                  <CheckCircle size={22} weight="bold" /> COMPLETE ASSIGNMENT
+                  <CheckCircle size={22} weight="bold" /> Complete Assignment
                 </button>
               </div>
             ))}
             {myMissions.filter(m => m.status !== "completed").length === 0 && (
               <div className="tc-card border-dashed bg-transparent text-center py-12">
-                <div className="font-mono text-sm text-[var(--ink-soft)] uppercase tracking-widest">No active assignments</div>
+                <div className=" font-mono text-sm text-[var(--ink-soft)] tracking-widest">No active assignments</div>
                 <p className="text-xs text-[var(--ink-muted)] mt-2 italic">Updating available requests...</p>
               </div>
             )}
@@ -213,21 +214,38 @@ export default function VolunteerDashboardPage() {
           <h2 className="font-heading text-2xl font-black tracking-tight pt-4">Nearby Opportunities</h2>
           <div className="tc-card divide-y divide-[var(--border)] p-0 overflow-hidden">
             {nearbyOpportunities.map(n => (
-              <Link to={`/needs/${n.id}`} key={n.id} className="flex items-center gap-4 p-4 hover:bg-[var(--bone-alt)] transition-colors group">
+              <div key={n.id} className="flex items-center gap-4 p-4 hover:bg-[var(--bone-alt)] transition-colors group">
                 <div className="font-mono font-bold text-[var(--signal-red)] text-lg">U{n.urgency}</div>
-                <div className="flex-1">
-                  <div className="font-bold text-sm group-hover:text-[var(--signal-red)]">{n.title}</div>
-                  <div className="text-[10px] font-mono text-[var(--ink-muted)] uppercase tracking-wider">{n.category.replace(/_/g, " ")} · {n.people_affected} affected</div>
+                <Link to={`/needs/${n.id}`} className="flex-1 whitespace-nowrap overflow-hidden">
+                  <div className="font-bold text-sm group-hover:text-[var(--signal-red)] truncate">{n.title}</div>
+                  <div className=" text-[10px] font-mono text-[var(--ink-muted)] tracking-wider">{n.category.replace(/_/g, " ")} · {n.people_affected} affected</div>
+                </Link>
+                <div className="flex items-center gap-3">
+                   <button 
+                     onClick={async () => {
+                        const t = toast.loading("Claiming...");
+                        try {
+                          await api.post(`/needs/${n.id}/claim`);
+                          toast.success("Mission Claimed", { id: t });
+                          window.location.reload(); // Refresh to update mission list
+                        } catch (e) {
+                          toast.error(e.response?.data?.detail || "Claim failed", { id: t });
+                        }
+                     }}
+                     className="bg-green-600 text-white px-4 py-1.5 text-[10px] font-black hover:bg-green-500 transition-all shadow-[2px_2px_0px_rgba(22,163,74,0.2)]"
+                   >
+                     Claim
+                   </button>
+                   <MapPin size={18} className="text-[var(--border)] group-hover:text-[var(--signal-red)]" />
                 </div>
-                <MapPin size={18} className="text-[var(--border)] group-hover:text-[var(--signal-red)]" />
-              </Link>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Leaderboard & Stats */}
+        {/* Field Briefing & Manual */}
         <div className="md:col-span-5 space-y-6">
-          <h2 className="font-heading text-2xl font-black mb-6">Active Assignments</h2>
+          <h2 className="font-heading text-2xl font-black mb-6">Field Status</h2>
           <div className="tc-table-container">
             <table className="w-full">
               <thead>
@@ -242,7 +260,7 @@ export default function VolunteerDashboardPage() {
                   <tr key={task.id} className="hover:bg-[var(--bone-alt)] transition-colors group">
                     <td className="p-4">
                       <div className="font-bold">{task.title || "Mission Task"}</div>
-                      <div className="text-[10px] font-mono text-[var(--ink-soft)] uppercase tracking-wider">ID: {task.id.slice(0, 6)}</div>
+                      <div className="text-[10px] font-mono text-[var(--ink-soft)]  tracking-wider">ID: {task.id.slice(0, 6)}</div>
                     </td>
                     <td className="p-4">
                       <span className={`tc-badge ${task.status === "pending" ? "tc-badge-crit" : "tc-badge-outl"}`}>
@@ -250,7 +268,7 @@ export default function VolunteerDashboardPage() {
                       </span>
                     </td>
                     <td className="p-4 text-right">
-                      <Link to={`/missions/${task.id}`} className="text-[10px] font-black underline underline-offset-4 hover:text-[var(--signal-red)]">OPERATE →</Link>
+                      <Link to={`/missions/${task.id}`} className="text-[10px] font-black underline underline-offset-4 hover:text-[var(--signal-red)]">Operate →</Link>
                     </td>
                   </tr>
                 ))}
@@ -259,9 +277,9 @@ export default function VolunteerDashboardPage() {
           </div>
 
           <div className="tc-card bg-[var(--ink)] text-[var(--bone)]">
-            <div className="tc-label text-[var(--signal-red)]">FIELD MANUAL</div>
+            <div className="tc-label text-[var(--signal-red)]">Field Manual</div>
             <div className="text-sm font-bold mt-2 italic">"Efficiency saves lives. Always upload clear proof of resolution."</div>
-            <div className="mt-4 grid grid-cols-2 gap-4 text-[10px] font-mono uppercase tracking-widest text-[var(--ink-muted)]">
+            <div className="mt-4 grid grid-cols-2 gap-4 text-[10px] font-mono  tracking-widest text-[var(--ink-muted)]">
               <div>• Check navigation</div>
               <div>• Verify resources</div>
               <div>• Ensure safety</div>

@@ -5,12 +5,14 @@ import { useI18n } from "@/context/I18nContext";
 import { useDisaster } from "@/context/DisasterContext";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { getQueuedRequests, clearQueuedRequests } from "@/lib/idb";
 import { getDashboardPathForRole } from "@/lib/roleRoutes";
 import { 
   SquaresFour, Warning, Users, Package, MapTrifold, ChartLine,
   ClipboardText, SignOut, Translate, Siren, Radio,
-  List, Gear, CaretLeft, MagnifyingGlass, X as CloseIcon
+  List, Gear, CaretLeft, MagnifyingGlass, X as CloseIcon, Sun, Moon, Microphone, MicrophoneSlash
 } from "@phosphor-icons/react";
+import { useVoiceCommands } from "@/hooks/useVoiceCommands";
 
 const SearchModal = ({ open, setOpen, navItems, navigate }) => {
   const [query, setQuery] = useState("");
@@ -91,6 +93,59 @@ export default function AppShell({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [badges, setBadges] = useState({ requests: 0, missions: 0 });
+  const [darkMode, setDarkMode] = useState(localStorage.getItem("theme") === "dark");
+
+  useEffect(() => {
+    document.body.classList.toggle("dark", darkMode);
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
+  const voiceCommands = {
+    "go to dashboard": () => navigate(dashboardPath),
+    "go to requests": () => navigate("/needs"),
+    "go to map": () => navigate("/map"),
+    "go to missions": () => navigate("/missions"),
+    "sign out": () => { logout(); navigate("/login"); },
+    "emergency": () => { if(user?.role === 'admin') navigate("/admin-dashboard"); },
+    "data refresh": () => window.location.reload()
+  };
+
+  const { listening, startListening, stopListening } = useVoiceCommands(voiceCommands);
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOnline) {
+      const sync = async () => {
+        const queued = await getQueuedRequests();
+        if (queued.length > 0) {
+          const tId = toast.loading(`Syncing ${queued.length} offline operations...`);
+          try {
+            for (const req of queued) {
+              await api({
+                url: req.url,
+                method: req.method,
+                data: req.body
+              });
+            }
+            await clearQueuedRequests();
+            toast.success("Delta-Sync Complete", { id: tId });
+          } catch (err) {
+            toast.error("Sync failed - will retry later", { id: tId });
+          }
+        }
+      };
+      sync();
+    }
+  }, [isOnline]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -202,14 +257,14 @@ export default function AppShell({ children }) {
           </nav>
           <div className="p-6 border-t border-[var(--border)] bg-[var(--bone-alt)]/20">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-[var(--ink)] text-white flex items-center justify-center font-black">{user?.name?.substring(0, 2).toUpperCase()}</div>
+              <div className="w-10 h-10 rounded-full bg-[var(--ink)] text-[var(--bone)] flex items-center justify-center font-black">{user?.name?.substring(0, 2).toUpperCase()}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold truncate text-sm">{user?.name}</div>
                 <div className="text-[10px] uppercase font-black text-[var(--signal-red)]">{user?.role}</div>
               </div>
             </div>
             <button onClick={() => { logout(); navigate("/login"); }} className="btn-hard w-full !text-[10px] py-3 flex items-center justify-center gap-2">
-              <SignOut size={16} weight="bold" /> LOG OUT
+              <SignOut size={16} weight="bold" /> Log Out
             </button>
           </div>
         </aside>
@@ -247,7 +302,7 @@ export default function AppShell({ children }) {
         <div className="mt-auto border-t border-[var(--border)] bg-[var(--bone-alt)]/30">
           <div className={`p-4 flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
             <div className="relative shrink-0">
-              <div className={`w-10 h-10 rounded-full bg-[var(--ink)] text-white flex items-center justify-center font-black text-xs border-2 border-white shadow-sm ring-1 ring-[var(--border)] ${collapsed ? "w-8 h-8 text-[10px]" : ""}`}>
+              <div className={`w-10 h-10 rounded-full bg-[var(--ink)] text-[var(--bone)] flex items-center justify-center font-black text-xs border-2 border-white shadow-sm ring-1 ring-[var(--border)] ${collapsed ? "w-8 h-8 text-[10px]" : ""}`}>
                 {user?.name?.substring(0, 2).toUpperCase()}
               </div>
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
@@ -265,7 +320,7 @@ export default function AppShell({ children }) {
                   </button>
                 </div>
                 <div className={`inline-block mt-0.5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter rounded-sm ${
-                  user?.role === 'admin' ? "bg-[var(--signal-red)] text-white" : "bg-[var(--ink)] text-white"
+                  user?.role === 'admin' ? "bg-[var(--signal-red)] text-white" : "bg-[var(--ink)] text-[var(--bone)]"
                 }`}>
                   {user?.role}
                 </div>
@@ -335,6 +390,20 @@ export default function AppShell({ children }) {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => listening ? stopListening() : startListening()}
+              className={`p-2 border border-[var(--border)] transition-all ${listening ? "bg-[var(--signal-red)] text-white animate-pulse" : "bg-[var(--bone-alt)] text-[var(--ink)]"}`}
+              title="Voice Dispatch"
+            >
+              {listening ? <Microphone weight="fill" size={18} /> : <Microphone size={18} weight="bold" />}
+            </button>
+            <button 
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 border border-[var(--border)] bg-[var(--bone-alt)] text-[var(--ink)] hover:bg-[var(--bone)] transition-all"
+              title="Toggle Theme"
+            >
+              {darkMode ? <Sun size={18} weight="bold" /> : <Moon size={18} weight="bold" />}
+            </button>
             <button 
               onClick={() => setSearchOpen(true)}
               className="btn-ghost !p-2 flex items-center gap-2 border-[var(--border)]"

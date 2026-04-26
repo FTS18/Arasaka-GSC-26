@@ -8,7 +8,7 @@ Janrakshak utilizes advanced Large Language Models (LLMs) and computer vision to
 
 ## 1. Gemini Integration Strategy
 
-The system utilizes the Gemini-1.5-Pro and Gemini-1.5-Flash models for two critical operational paths:
+The system utilizes the Gemini-2.5-Flash model for all critical operational paths:
 
 ### Automated Field Report Extraction (OCR and Triage)
 When field workers upload paper reports or raw text communications:

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { auth, googleProvider } from "@/lib/firebase";
+import { signInWithPopup } from "firebase/auth";
 
 const AuthCtx = createContext(null);
 export const useAuth = () => useContext(AuthCtx);
@@ -37,13 +39,22 @@ export const AuthProvider = ({ children }) => {
     return r.data.user;
   };
 
+  const loginWithGoogle = async () => {
+    const result = await signInWithPopup(auth, googleProvider);
+    const idToken = await result.user.getIdToken();
+    const r = await api.post("/auth/google", { token: idToken });
+    localStorage.setItem("janrakshak_token", r.data.token);
+    setUser(r.data.user);
+    return r.data.user;
+  };
+
   const logout = () => {
     localStorage.removeItem("janrakshak_token");
     setUser(null);
   };
 
   return (
-    <AuthCtx.Provider value={{ user, loading, login, register, logout, refresh: loadMe }}>
+    <AuthCtx.Provider value={{ user, loading, login, register, loginWithGoogle, logout, refresh: loadMe }}>
       {children}
     </AuthCtx.Provider>
   );

@@ -1,66 +1,62 @@
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js');
+const CACHE_NAME = 'janrakshak-v1';
+const OFFLINE_URL = '/offline.html';
 
-if (workbox) {
-    console.log('Workbox is loaded');
+// 🏛️ Strategy 3: PWA Offline Intelligence
+const ASSETS_TO_CACHE = [
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/static/js/bundle.js',
+    '/static/css/main.css',
+    '/logo.png',
+    OFFLINE_URL
+];
 
-    // Cache API GET requests
-    workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith('/api/') && (!url.pathname.includes('/matching/')),
-        new workbox.strategies.NetworkFirst({
-            cacheName: 'api-cache',
-            plugins: [
-                new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 50,
-                    maxAgeSeconds: 24 * 60 * 60, // 24 hours
-                }),
-            ],
-        }),
-        'GET'
-    );
-
-    // Background Sync for POST / PATCH (Updates, new requests)
-    const bgSyncPlugin = new workbox.backgroundSync.BackgroundSyncPlugin('janrakshak-queue', {
-        maxRetentionTime: 24 * 60 // Retry for max of 24 Hours (specified in minutes)
-    });
-
-    workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith('/api/citizen/reports') || url.pathname.startsWith('/api/missions'),
-        new workbox.strategies.NetworkOnly({
-            plugins: [bgSyncPlugin]
-        }),
-        'POST'
-    );
-
-    workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith('/api/missions'),
-        new workbox.strategies.NetworkOnly({
-            plugins: [bgSyncPlugin]
-        }),
-        'PATCH'
-    );
-
-    // Cache Map Tiles
-    workbox.routing.registerRoute(
-        ({ url }) => url.origin === 'https://cartocdn.com' || url.href.includes('basemaps.cartocdn.com'),
-        new workbox.strategies.StaleWhileRevalidate({
-            cacheName: 'map-tiles-cache',
-            plugins: [
-                new workbox.expiration.ExpirationPlugin({
-                    maxEntries: 200,
-                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-                }),
-            ],
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => {
+            return cache.addAll(ASSETS_TO_CACHE);
         })
     );
+    self.skipWaiting();
+});
 
-    // Cache basic static assets
-    workbox.routing.registerRoute(
-        ({ request }) => request.destination === 'script' || request.destination === 'style' || request.destination === 'image',
-        new workbox.strategies.StaleWhileRevalidate({
-            cacheName: 'static-resources',
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
         })
     );
+});
 
-} else {
-    console.log('Workbox failed to load');
-}
+self.addEventListener('fetch', (event) => {
+    // Check if it's an API call - we handle those differently
+    if (event.request.url.includes('/api/')) {
+        // 🛰️ Network-First for API
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    // Clone and cache the API response for offline view
+                    const resClone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, resClone);
+                    });
+                    return response;
+                })
+                .catch(() => caches.match(event.request)) // Fallback to stale data if offline
+        );
+    } else {
+        // 🧱 Cache-First for static assets
+        event.respondWith(
+            caches.match(event.request).then((response) => {
+                return response || fetch(event.request).catch(() => caches.match(OFFLINE_URL));
+            })
+        );
+    }
+});

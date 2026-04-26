@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { TableRowSkeleton, CardSkeleton } from "@/components/SkeletonLoader";
 import { MagnifyingGlass, Warning, Plus, Package, Truck, HandHeart } from "@phosphor-icons/react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -18,6 +19,34 @@ export default function ResourcesPage() {
   const load = async () => {
     setLoading(true);
     try {
+      // 🏛️ Strategy 2 & 4: Multi-Stage Bundle Loading
+      const localBundle = localStorage.getItem("bundle_resources");
+      const bundleMeta = JSON.parse(localStorage.getItem("bundle_resources_meta") || "{}");
+      
+      const now = Date.now();
+      const isStale = !bundleMeta.timestamp || (now - bundleMeta.timestamp > 3600000); // 1h Stale
+
+      if (localBundle && !isStale) {
+        setRes(JSON.parse(localBundle));
+        setLoading(false);
+        return;
+      }
+
+      // Try Server Bundle (1 read per hour total)
+      try {
+        const bundleRes = await api.get("/api/system/bundle/resources");
+        if (bundleRes.data?.data) {
+          setRes(bundleRes.data.data);
+          localStorage.setItem("bundle_resources", JSON.stringify(bundleRes.data.data));
+          localStorage.setItem("bundle_resources_meta", JSON.stringify({ timestamp: now }));
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn("Bundle server unavailable, falling back to direct reads.");
+      }
+
+      // Final Fallback: Direct reads
       const r = await api.get("/resources");
       setRes(r.data);
     } finally {
@@ -41,9 +70,9 @@ export default function ResourcesPage() {
 
   const shortages = res.filter(r => r.quantity <= r.min_threshold || r.quantity < 10);
   const filtered = res.filter(r => 
-    r.name.toLowerCase().includes(search.toLowerCase()) || 
-    r.category.toLowerCase().includes(search.toLowerCase()) ||
-    r.warehouse.toLowerCase().includes(search.toLowerCase())
+    (r.name || "").toLowerCase().includes(search.toLowerCase()) || 
+    (r.category || "").toLowerCase().includes(search.toLowerCase()) ||
+    (r.warehouse || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const handleRequisition = async (resource) => {
@@ -72,30 +101,36 @@ export default function ResourcesPage() {
       {shortages.length > 0 && (
         <div className="space-y-2">
           <div className="tc-label flex items-center gap-2 text-[var(--signal-red)]">
-            <Warning weight="fill" /> CRITICAL REQUISITION QUEUE
+            <Warning weight="fill" /> Critical Requisition Queue
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
-            {shortages.map(s => (
-              <div key={s.id} className="tc-card min-w-[240px] border-l-4 border-[var(--signal-red)] flex flex-col justify-between" data-testid="shortage-card">
-                <div>
-                  <div className="font-heading font-bold text-lg">{s.name}</div>
-                  <div className="font-mono text-xs text-[var(--ink-soft)] uppercase mt-1">{s.warehouse}</div>
-                  <div className="mt-3 flex items-end gap-2">
-                    <span className="font-mono text-2xl font-black text-[var(--signal-red)]">{s.quantity}</span>
-                    <span className="font-mono text-xs mb-1 text-[var(--ink-soft)]">/ MIN {s.min_threshold}</span>
+            {loading ? (
+              [1, 2, 3].map(i => <CardSkeleton key={i} />)
+            ) : (
+              <>
+                {shortages.map(s => (
+                  <div key={s.id} className="tc-card min-w-[240px] border-l-4 border-[var(--signal-red)] flex flex-col justify-between" data-testid="shortage-card">
+                    <div>
+                      <div className="font-heading font-bold text-lg">{s.name}</div>
+                      <div className="font-mono text-xs text-[var(--ink-soft)] uppercase mt-1">{s.warehouse}</div>
+                      <div className="mt-3 flex items-end gap-2">
+                        <span className="font-mono text-2xl font-black text-[var(--signal-red)]">{s.quantity}</span>
+                        <span className="font-mono text-xs mb-1 text-[var(--ink-soft)]">/ Min {s.min_threshold}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button 
+                        onClick={() => handleRequisition(s)}
+                        className="btn-hard !py-1.5 !px-3 !text-[10px] flex-1"
+                      >
+                        Requisition
+                      </button>
+                      <button className="btn-ghost !py-1.5 !px-3 !text-[10px] flex-1">Donation</button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button 
-                    onClick={() => handleRequisition(s)}
-                    className="btn-hard !py-1.5 !px-3 !text-[10px] flex-1"
-                  >
-                    REQUISITION
-                  </button>
-                  <button className="btn-ghost !py-1.5 !px-3 !text-[10px] flex-1">DONATION</button>
-                </div>
-              </div>
-            ))}
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -112,8 +147,8 @@ export default function ResourcesPage() {
           />
         </div>
         <div className="flex gap-2">
-          <div className="tc-badge tc-badge-outl whitespace-nowrap">{filtered.length} ITEMS</div>
-          <div className="tc-badge tc-badge-crit whitespace-nowrap text-[var(--signal-red)]">{shortages.length} ALERTS</div>
+          <div className="tc-badge tc-badge-outl whitespace-nowrap">{filtered.length} items</div>
+          <div className="tc-badge tc-badge-crit whitespace-nowrap text-[var(--signal-red)]">{shortages.length} alerts</div>
         </div>
       </div>
 
@@ -131,28 +166,19 @@ export default function ResourcesPage() {
           </thead>
           <tbody>
             {loading ? (
-              [...Array(6)].map((_, i) => (
-                <tr key={i} className="border-b border-[var(--border)] animate-pulse">
-                  <td className="py-4 px-4"><div className="h-4 w-32 bg-[var(--bone-alt)] rounded" /></td>
-                  <td className="py-4 px-4"><div className="h-4 w-20 bg-[var(--bone-alt)] rounded" /></td>
-                  <td className="py-4 px-4"><div className="h-4 w-12 bg-[var(--bone-alt)] rounded" /></td>
-                  <td className="py-4 px-4"><div className="h-4 w-8 bg-[var(--bone-alt)] rounded" /></td>
-                  <td className="py-4 px-4"><div className="h-4 w-24 bg-[var(--bone-alt)] rounded" /></td>
-                  <td className="py-4 px-4"><div className="h-4 w-12 bg-[var(--bone-alt)] rounded" /></td>
-                </tr>
-              ))
+              [1, 2, 3, 4, 5, 6].map(i => <TableRowSkeleton key={i} />)
             ) : filtered.map(r => {
               const low = r.quantity <= r.min_threshold;
               return (
                 <tr key={r.id} className="border-b border-[var(--border)] font-mono" data-testid={`res-row-${r.id}`}>
-                  <td className="py-4 px-4 font-semibold">{r.name}</td>
-                  <td className="py-4 px-4"><span className="tc-badge tc-badge-outl">{r.category.replace(/_/g," ")}</span></td>
+                  <td className="py-4 px-4 font-semibold">{r.name || "UNNAMED"}</td>
+                  <td className="py-4 px-4"><span className="tc-badge tc-badge-outl">{(r.category || "other").replace(/_/g," ")}</span></td>
                   <td className="py-4 px-4 font-mono font-bold">{r.quantity} {r.unit}</td>
                   <td className="py-4 px-4 font-mono text-[var(--ink-soft)]">{r.min_threshold}</td>
                   <td className="py-4 px-4">{r.warehouse}</td>
                   <td className="py-4 px-4 text-center">
                     <span className={`inline-block w-3 h-3 rounded-full mr-2 ${low ? "bg-[var(--signal-red)] shadow-[0_0_8px_rgba(239,68,68,0.4)]" : "bg-green-500"}`} />
-                    <span className={`tc-badge ${low ? "tc-badge-crit" : "tc-badge-res"}`}>{low ? "LOW" : "OK"}</span>
+                    <span className={`tc-badge ${low ? "tc-badge-crit" : "tc-badge-res"}`}>{low ? "Low" : "Optimal"}</span>
                   </td>
                 </tr>
               );

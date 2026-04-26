@@ -13,6 +13,7 @@ Access to telemetry and operational commands is strictly enforced via roles:
 -   `admin`: Full sector command, audit logs, and system configuration.
 -   `volunteer`: Mission acquisition, completion reporting, and tactical profile management.
 -   `user`: Public assistance requests and limited dashboard telemetry.
+-   **Hybrid Auth**: Supports `Bearer <Custom_JWT>` for local session persistence alongside Firebase ID Tokens.
 
 ---
 
@@ -41,10 +42,11 @@ Aggregated list of assistance requests.
 Initialize a new assistance request.
 -   **Features**: Supports raw text for AI-automated triage and geospatial tag population.
 
-### `POST /api/needs/ocr`
-Digitize paper surveys using Gemini 2.0.
--   **Input**: Base64 encoded field report image.
 -   **Logic**: AI-driven extraction of Location, Category, and Urgency.
+
+### `GET /api/data/bundle`
+Retrieve high-speed data snapshots for offline caching.
+-   **Optimization**: Bundles Resources, Volunteers, and Stats into a single network turn.
 
 ---
 
@@ -63,24 +65,33 @@ Signal the successful resolution of an assignment.
 
 ## 4. System Intelligence & Resource Tracking
 
-### `GET /api/dashboard/stats`
-Aggregated telemetry for the main command view.
 -   **Optimization**: Built with asyncio.gather for parallel database calls across Missions, Needs, and Volunteers. Sub-100ms response time.
 
-### `GET /api/resources`
-Retrieve inventory from warehouses.
+### `GET /api/admin/stats` (Zero-Read High-Performance)
+Highly efficient telemetry for command personnel.
+-   **Optimization**: O(1) Reads. Pulling from pre-aggregated `global_stats` document.
+
 -   **Performance**: Uses field-limited projections to return only critical inventory metrics for high-speed dashboard counting.
+
+---
+
+## 5. Tactical Communication & Event Handling
+
+### `POST /api/telegram/webhook`
+Mission-Critical incoming event handler.
+-   **Input**: Native Telegram Update payload.
+-   **Logic**: Handles disaster reporting and volunteer registration via push signals.
 
 ---
 
 ## 5. Operational Tooling (/backend/scripts)
 
 The following utilities are available for system maintenance and crisis simulation:
--   `manual_seed.py`: Initializes the environment with verified tactical data.
+-   `setup_environment.py`: Environment restoration with high-fidelity, high-stakes synthetic records.
 -   `simulate_crisis.py`: Stress-tests the priority engine with high-volume synthetic requests.
--   `check_missions.py`: Audits mission data integrity and volunteer membership records.
+-   `ingest_firestore.py`: Native cloud-direct bulk ingestion system.
 
 ---
 
-*Janrakshak API v2.6.4*
+*Janrakshak API v2.8.0 - Tactical Ready*
 *Propelling field intelligence into decisive action.*

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { 
   User, 
@@ -15,6 +15,7 @@ import {
 
 export default function VolunteerDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [vol, setVol] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -132,9 +133,9 @@ export default function VolunteerDetailPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-[var(--bone-alt)]/50 border-b border-[var(--border)]">
-                    <th className="py-2 px-4 text-[9px] font-black uppercase">Mission ID</th>
+                    <th className="py-2 px-4 text-[9px] font-black uppercase">Mission Descriptor</th>
                     <th className="py-2 px-4 text-[9px] font-black uppercase">Status</th>
-                    <th className="py-2 px-4 text-[9px] font-black uppercase">Date</th>
+                    <th className="py-2 px-4 text-[9px] font-black uppercase">Last Updated</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]/50">
@@ -144,14 +145,27 @@ export default function VolunteerDetailPage() {
                     </tr>
                   ) : (
                     vol.missions_history.map(m => (
-                      <tr key={m.id} className="hover:bg-[var(--bone-alt)]/30 transition-colors">
-                        <td className="py-3 px-4 font-mono text-[10px] font-bold">{m.id.split('-')[0].toUpperCase()}</td>
+                      <tr 
+                        key={m.id} 
+                        className="hover:bg-[var(--bone-alt)]/30 transition-all cursor-pointer group"
+                        onClick={() => navigate(`/needs/${m.id}`)}
+                      >
+                        <td className="py-3 px-4 font-bold text-[10px] uppercase group-hover:text-[var(--signal-red)]">
+                          {m.title || "Untitled Mission"}
+                          <div className="text-[8px] opacity-40 font-mono mt-0.5">REF: {m.id.split('-')[0].toUpperCase()}</div>
+                        </td>
                         <td className="py-3 px-4">
-                          <span className={`text-[8px] font-black uppercase px-2 py-0.5 border ${m.status === 'completed' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
+                          <span className={`text-[8px] font-black uppercase px-2 py-0.5 border ${
+                            m.status === 'completed' ? 'bg-green-100 text-green-800 border-green-200' : 
+                            m.status === 'assigned' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                            'bg-blue-100 text-blue-800 border-blue-200'
+                          }`}>
                             {m.status}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-[10px] font-mono">{new Date(m.created_at).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-[10px] font-mono opacity-60">
+                          {new Date(m.updated_at || m.created_at).toLocaleDateString()}
+                        </td>
                       </tr>
                     ))
                   )}

@@ -12,7 +12,7 @@
   --ink-muted: #8A8D91;
   --signal-red: #E63946;
   --signal-red-dk: #C02D3A;
-  --brand-blue: #1e3a8a;
+  --brand-blue: #1E3A8A;
   --brand-gold: #b49e6d;
   --sage: #2A3D31;
   --sage-dk: #1C2921;
@@ -22,6 +22,46 @@
   --border: #D1CFCA;
   --border-strong: #111213;
   --dark-surface: #1A1B1C;
+}
+
+body.dark {
+  --bone: #111213;
+  /* Inverted: BG is now Ink */
+  --bone-alt: #1A1B1C;
+  --ink: #F6F5F2;
+  /* Inverted: Text is now Bone */
+  --ink-soft: #D1CFCA;
+  --ink-muted: #8A8D91;
+  --border: #444648;
+  --border-strong: #F6F5F2;
+}
+
+body.dark .tc-card {
+  background: #111213;
+  border-color: #444648;
+}
+
+body.dark .tc-input,
+body.dark .tc-select,
+body.dark .tc-textarea {
+  background: #1A1B1C;
+  color: #F6F5F2;
+  border-color: #444648;
+}
+
+body.dark .tc-table-header {
+  border-color: #444648;
+}
+
+body.dark header,
+body.dark aside,
+body.dark nav {
+  background-color: #111213 !important;
+  color: #F6F5F2 !important;
+}
+
+body.dark .bg-white {
+  background-color: #111213 !important;
 }
 
 html,
@@ -80,8 +120,7 @@ body {
 .tc-label {
   font-family: 'Sora', sans-serif;
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.1em;
   font-weight: 700;
   color: var(--ink-soft);
   display: block;
@@ -144,8 +183,7 @@ body {
   color: var(--bone);
   font-family: 'Sora', sans-serif;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.05em;
   font-size: 12px;
   padding: 12px 20px;
   border: 1px solid var(--ink);
@@ -166,8 +204,7 @@ body {
   color: #fff;
   font-family: 'Sora', sans-serif;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.05em;
   font-size: 12px;
   padding: 12px 20px;
   border: 1px solid var(--signal-red);
@@ -187,8 +224,7 @@ body {
   color: var(--ink);
   font-family: 'Sora', sans-serif;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.05em;
   font-size: 11px;
   padding: 10px 18px;
   border: 2px solid var(--ink);
@@ -251,8 +287,7 @@ body {
   font-family: 'Sora', sans-serif;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.1em;
   color: var(--ink-soft);
   display: block;
   margin-bottom: 8px;
@@ -262,8 +297,7 @@ body {
   font-family: 'Sora', sans-serif;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.1em;
   color: var(--ink-soft);
   border-bottom: 1px solid var(--border);
 }
@@ -279,8 +313,7 @@ body {
   font-family: 'Sora', sans-serif;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  letter-spacing: 0.05em;
   padding: 3px 8px;
   border-radius: 2px;
   border: 1px solid transparent;
@@ -317,8 +350,7 @@ body {
   font-family: 'Sora', sans-serif;
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.05em;
   padding: 10px 0;
   border-bottom: 2px solid transparent;
   color: var(--ink-soft);
@@ -447,14 +479,15 @@ body.disaster-mode .tc-mobile-cta {
   }
 }
 
-/* Skeleton Loading State */
+/* Skeleton Loading State - Bone-Exact Optimization */
 .tc-skeleton {
   background: var(--bone-alt);
   position: relative;
   overflow: hidden;
+  border-radius: 2px;
 }
 
-.tc-skeleton::after {
+.tc-skeleton-shimmer::after {
   content: "";
   position: absolute;
   top: 0;
@@ -464,10 +497,18 @@ body.disaster-mode .tc-mobile-cta {
   transform: translateX(-100%);
   background-image: linear-gradient(90deg,
       rgba(255, 255, 255, 0) 0,
-      rgba(255, 255, 255, 0.4) 20%,
-      rgba(255, 255, 255, 0.7) 60%,
+      rgba(255, 255, 255, 0.2) 20%,
+      rgba(255, 255, 255, 0.4) 60%,
       rgba(255, 255, 255, 0));
-  animation: shimmer 2s infinite;
+  animation: shimmer 1.5s infinite linear;
+}
+
+body.dark .tc-skeleton-shimmer::after {
+  background-image: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0,
+      rgba(255, 255, 255, 0.05) 20%,
+      rgba(255, 255, 255, 0.1) 60%,
+      rgba(255, 255, 255, 0));
 }
 
 @keyframes shimmer {
