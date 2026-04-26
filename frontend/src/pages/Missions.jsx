@@ -29,7 +29,7 @@ export default function MissionsPage() {
     <div className="p-6 md:p-8 space-y-6" data-testid="missions-page">
       <div className="flex items-end justify-between">
         <div>
-          <div className="tc-overline">Operational Units</div>
+          <div className="tc-label">Operational Units</div>
           <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Missions</h1>
         </div>
       </div>
@@ -39,7 +39,7 @@ export default function MissionsPage() {
           <div key={m.id} className="tc-card" data-testid={`mission-card-${m.id}`}>
             <div className="flex justify-between items-start">
               <div>
-                <div className="tc-overline">Mission · {m.id.slice(0,8)}</div>
+                <div className="tc-label">Mission · {m.id.slice(0,8)}</div>
                 <div className="font-heading font-bold text-lg mt-1">{m.need_ids.length} request(s) · {m.volunteer_ids.length} volunteer(s)</div>
               </div>
               <span className={`tc-badge ${m.status === "completed" ? "tc-badge-res" : "tc-badge-high"}`}>{m.status}</span>
@@ -63,7 +63,7 @@ export default function MissionsPage() {
       {selected && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setSelected(null)}>
           <div onClick={(e)=>e.stopPropagation()} className="tc-card max-w-md w-full space-y-4" data-testid="complete-mission-modal">
-            <div className="tc-overline">Proof of Completion</div>
+            <div className="tc-label">Proof of Completion</div>
             <label className="tc-label">Photo URLs (comma-separated)</label>
             <input className="tc-input" placeholder="https://..." value={proof} onChange={(e)=>setProof(e.target.value)} data-testid="proof-urls" />
             <div className="flex gap-2 justify-end">

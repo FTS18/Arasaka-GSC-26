@@ -11,7 +11,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Radio size={22} weight="fill" className="text-[var(--signal-red)]" />
             <span className="font-heading text-xl font-black tracking-tighter">JANRAKSHAK</span>
-            <span className="tc-overline ml-2 hidden md:inline">GSC-26 OPERATIONS</span>
+            <span className="tc-label ml-2 hidden md:inline">RELIEF NETWORK OPERATIONS</span>
           </div>
           <nav className="hidden md:flex items-center gap-3">
             <Link to="/citizen" className="btn-ghost" data-testid="cta-citizen-report">Citizen Report</Link>
@@ -23,10 +23,10 @@ export default function LandingPage() {
       {/* Hero */}
       <section id="main-content" className="max-w-7xl mx-auto px-6 py-10 md:py-16 grid md:grid-cols-12 gap-8 tc-gridline">
         <div className="md:col-span-7">
-          <div className="tc-overline">Operational Platform · Janrakshak GSC-26</div>
+          <div className="tc-label">Operational Platform · Janrakshak</div>
           <h1 className="font-heading text-5xl md:text-7xl font-black tracking-tighter leading-[0.95] mt-2">
             Turn field<br />
-            intelligence into <span className="text-[var(--signal-red)]">decisive action.</span>
+            data into <span className="text-[var(--signal-red)]">decisive action.</span>
           </h1>
           <p className="mt-4 text-base md:text-lg text-[var(--ink-soft)] max-w-xl leading-relaxed">
             A high-stakes command console for NGOs and rapid response networks — triage crisis signals, dispatch vetted personnel, and route critical resources with precision.
@@ -49,8 +49,8 @@ export default function LandingPage() {
             />
             <div className="p-4 border-t border-[var(--border)] flex items-center justify-between">
               <div>
-                <div className="tc-overline">Live Feed</div>
-                <div className="font-mono text-sm mt-1">SECTOR-09 · GRID-ALPHA · STATUS: CRITICAL</div>
+                <div className="tc-label">Live Feed</div>
+                <div className="font-mono text-sm mt-1">SOUTH DISTRICT · ZONE 4 · STATUS: PENDING</div>
               </div>
               <div className="tc-badge tc-badge-crit">CRITICAL</div>
             </div>
@@ -73,7 +73,7 @@ export default function LandingPage() {
                 {v}
                 {blink && <span className="w-2 h-2 rounded-full bg-[var(--signal-red)] animate-pulse" />}
               </span>
-              <span className="tc-overline whitespace-nowrap opacity-70">{l}</span>
+              <span className="tc-label whitespace-nowrap opacity-70">{l}</span>
             </div>
           ))}
           {/* Duplicate for Marquee Loop on Mobile */}
@@ -90,7 +90,7 @@ export default function LandingPage() {
                   {v}
                   {blink && <span className="w-2 h-2 rounded-full bg-[var(--signal-red)] animate-pulse" />}
                 </span>
-                <span className="tc-overline whitespace-nowrap opacity-70">{l}</span>
+                <span className="tc-label whitespace-nowrap opacity-70">{l}</span>
               </div>
             ))}
           </div>
@@ -100,15 +100,15 @@ export default function LandingPage() {
       {/* Features */}
       <section className="border-t border-[var(--border)] py-12">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="tc-overline">Capabilities</div>
+          <div className="tc-label">Capabilities</div>
           <h2 className="font-heading text-3xl md:text-4xl font-black tracking-tighter mt-2 max-w-3xl">
             A tactical stack for humanitarian logistics.
           </h2>
           <div className="mt-10 grid md:grid-cols-3 gap-6">
             {[
-              { icon: Gauge, t: "AI Prioritization", d: "Multi-factor scoring across urgency, vulnerability, waiting time, severity, weather, and demand history." },
+              { icon: Gauge, t: "Priority Engine", d: "Multi-factor scoring across urgency, vulnerability, waiting time, severity, weather, and demand history." },
               { icon: HandHeart, t: "Volunteer Matching", d: "Trust-scored matchmaking by proximity, skills, languages, transport, and availability." },
-              { icon: MapTrifold, t: "Geospatial Intel", d: "Cluster maps and heat signatures to detect hotspots, outbreaks, and under-served zones." },
+              { icon: MapTrifold, t: "Zone Mapping", d: "Cluster maps and heat signatures to detect hotspots, outbreaks, and under-served zones." },
               { icon: ShieldCheck, t: "Transparency", d: "Proof-of-completion photos, immutable audit logs, donor reports, public impact summaries." },
               { icon: Radio, t: "Disaster Mode", d: "One-toggle re-prioritization of every active request during floods, fires, riots, or heatwaves." },
               { icon: Gauge, t: "Impact Analytics", d: "People helped, response time, efficiency, category trends, top volunteers, under-served regions." },
@@ -125,8 +125,8 @@ export default function LandingPage() {
 
       <footer className="border-t border-[var(--border)] py-8">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-3">
-          <div className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-widest">JANRAKSHAK · GSC-26 OPERATIONS CONSOLE</div>
-          <div className="font-mono text-xs text-[var(--ink-muted)] uppercase tracking-wider">Tactical Resource Management System</div>
+          <div className="font-mono text-xs text-[var(--ink-soft)] uppercase tracking-widest">JANRAKSHAK · RELIEF NETWORK</div>
+          <div className="font-mono text-xs text-[var(--ink-muted)] uppercase tracking-wider">Integrated Resource Logistics System</div>
         </div>
       </footer>
 

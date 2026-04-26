@@ -67,7 +67,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex tc-gridline">
       <div className="hidden md:flex w-1/2 bg-[var(--ink)] text-[var(--bone)] p-12 flex-col justify-between">
         <div>
-          <div className="tc-overline text-[#BEBFC2]">EST. 2026 · FIELD CONSOLE</div>
+          <div className="tc-label text-[#BEBFC2]">EST. 2026 · FIELD CONSOLE</div>
           <div className="font-heading text-4xl font-black tracking-tighter mt-4 leading-[0.95]">
             JANRAKSHAK<br />GSC-26<br /><span className="text-[var(--signal-red)]">COMMAND.</span>
           </div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
           ].map(([v, l]) => (
             <div key={l}>
               <div className="text-2xl font-bold">{v}</div>
-              <div className="tc-overline text-[#BEBFC2] mt-1">{l}</div>
+              <div className="tc-label text-[#BEBFC2] mt-1">{l}</div>
             </div>
           ))}
         </div>
@@ -91,7 +91,7 @@ export default function LoginPage() {
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="tc-overline">Access Console</div>
+          <div className="tc-label">Access Console</div>
           <h1 className="font-heading text-3xl font-black tracking-tighter mt-1">Sign in</h1>
           <p className="text-sm text-[var(--ink-soft)] mt-2">Operator credentials required.</p>
           <button type="button" className="btn-ghost mt-4" onClick={seedAndOpenCreds} data-testid="open-test-creds-btn">
@@ -128,7 +128,7 @@ export default function LoginPage() {
           <div className="tc-card w-full max-w-xl" onClick={(e) => e.stopPropagation()} data-testid="test-creds-modal">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="tc-overline">Quick Login</div>
+                <div className="tc-label">Quick Login</div>
                 <h2 className="font-heading text-2xl font-black tracking-tighter mt-1">Test Credentials by Role</h2>
                 <p className="text-sm text-[var(--ink-soft)] mt-2">
                   Click any role to auto-fill the login form.

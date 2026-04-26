@@ -25,7 +25,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 tc-gridline">
       <div className="w-full max-w-md tc-card">
-        <div className="tc-overline text-[#BEBFC2]">ONBOARDING · FIELD AGENT</div>
+        <div className="tc-label text-[#BEBFC2]">ONBOARDING · FIELD AGENT</div>
         <h1 className="font-heading text-4xl font-black tracking-tighter mt-3">Create account</h1>
 
         <form onSubmit={submit} className="mt-6 space-y-6" data-testid="register-form">

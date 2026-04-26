@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState } from "react";
 const dict = {
   en: {
     app_name: "JANRAKSHAK",
-    tagline: "GSC-26 OPERATIONS CONSOLE",
+    tagline: "OPERATIONS CONSOLE",
     dashboard: "Dashboard",
     needs: "Requests",
     volunteers: "Volunteers",
@@ -30,7 +30,7 @@ const dict = {
   },
   hi: {
     app_name: "JANRAKSHAK",
-    tagline: "GSC-26 ऑपरेशंस कंसोल",
+    tagline: "ऑपरेशंस कंसोल",
     dashboard: "डैशबोर्ड",
     needs: "अनुरोध",
     volunteers: "स्वयंसेवक",

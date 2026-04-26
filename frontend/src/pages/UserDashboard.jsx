@@ -3,13 +3,52 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
-const Stat = ({ label, value }) => (
-  <div className="tc-card">
-    <div className="overline">{label}</div>
-    <div className="font-mono font-bold text-3xl mt-3 tracking-tight">{value}</div>
+const Spark = ({ color }) => {
+  const data = [...Array(12)].map((_, i) => ({ val: Math.floor(Math.random() * 20) + 10 }));
+  return (
+    <div className="tc-sparkline-container -mx-6 -mb-6 h-16 opacity-50">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <Area type="monotone" dataKey="val" stroke={color} fill={color} fillOpacity={0.05} strokeWidth={1} isAnimationActive={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const Stat = ({ label, value, variant, icon: Icon }) => (
+  <div className="tc-card overflow-hidden relative group hover:border-[var(--signal-red)] transition-colors">
+    <div className="flex justify-between items-start relative z-10">
+      <div className="tc-label">{label}</div>
+      {Icon && <Icon size={16} className="text-[var(--ink-soft)] group-hover:text-[var(--signal-red)]" />}
+    </div>
+    <div className="font-mono font-bold text-4xl mt-3 tracking-tight relative z-10">{value}</div>
+    <Spark color={variant === "crit" ? "var(--signal-red)" : "var(--ink-soft)"} />
   </div>
 );
+
+const StepAction = ({ status }) => {
+  const steps = ["pending", "assigned", "in_progress", "completed"];
+  const currentIdx = steps.indexOf(status);
+  
+  return (
+    <div className="flex items-center gap-1 mt-3">
+      {steps.map((s, idx) => (
+        <React.Fragment key={s}>
+          <div 
+            className={`h-1.5 flex-1 rounded-full ${
+              idx <= currentIdx 
+                ? s === "completed" ? "bg-green-500" : "bg-[var(--signal-red)]" 
+                : "bg-[var(--border)]"
+            }`}
+          />
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
 
 export default function UserDashboardPage() {
   const { user } = useAuth();
@@ -39,78 +78,102 @@ export default function UserDashboardPage() {
   const pendingCount = useMemo(() => myNeeds.filter((n) => ["pending", "assigned", "in_progress"].includes(n.status)).length, [myNeeds]);
   const completedCount = useMemo(() => myNeeds.filter((n) => n.status === "completed").length, [myNeeds]);
 
-  if (!stats) return <div className="p-8 font-mono text-sm">LOADING COMMUNITY DASHBOARD...</div>;
+  if (!stats) return <div className="p-8 font-mono text-xs uppercase tracking-widest animate-pulse">Loading community data...</div>;
 
   return (
-    <div className="p-6 md:p-8 space-y-6" data-testid="user-dashboard-page">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <div className="overline">Community Dashboard</div>
-          <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter mt-1">Your Social Impact View</h1>
-          <p className="text-sm text-[var(--ink-soft)] mt-2 max-w-2xl">
-            Data-Driven Volunteer Coordination for Social Impact: track your requests, monitor response progress, and see how local volunteer capacity is evolving.
+    <div className="p-6 md:p-8 space-y-8" data-testid="user-dashboard-page">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden bg-[var(--ink)] text-[var(--bone)] p-8 md:p-12 rounded-sm">
+        <div className="relative z-10 max-w-3xl">
+          <div className="tc-badge tc-badge-crit mb-4">EMERGENCY RESPONSE ACTIVE</div>
+          <h1 className="font-heading text-5xl md:text-7xl font-black tracking-tighter leading-none mb-6">
+            Do you need <span className="text-[var(--signal-red)]">Immediate</span> Assistance?
+          </h1>
+          <p className="text-lg text-[var(--ink-muted)] mb-8 font-medium">
+            Janrakshak connects you directly with field volunteers and relief resources. 
+            Report your need now for AI-triage and rapid dispatch.
           </p>
-        </div>
-        <Link to="/needs/new" className="btn-primary">+ Create New Request</Link>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="MY REQUESTS" value={myNeeds.length} />
-        <Stat label="MY ACTIVE" value={pendingCount} />
-        <Stat label="MY RESOLVED" value={completedCount} />
-        <Stat label="VOLUNTEERS AVAILABLE" value={stats.volunteers_available} />
-      </div>
-
-      <div className="grid md:grid-cols-12 gap-6">
-        <section className="md:col-span-8 tc-card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <div className="overline">My Requests</div>
-              <div className="font-heading text-xl font-bold mt-1">Recent Request Timeline</div>
-            </div>
-            <Link to="/needs" className="btn-ghost">Browse all needs</Link>
+          <div className="flex gap-4">
+            <Link to="/needs/new" className="btn-primary py-4 px-8 text-lg font-black tracking-tighter">
+              + I NEED HELP NOW
+            </Link>
+            <button className="btn-hard border-[var(--ink-soft)] text-white hover:bg-white/10 py-4 px-8 text-lg font-bold">
+              VIEW SAFETY ZONES
+            </button>
           </div>
-          <div className="divide-y divide-[var(--border)]">
-            {myNeeds.slice(0, 10).map((n) => (
-              <Link to={`/needs/${n.id}`} key={n.id} className="flex items-start gap-4 py-4 hover:bg-[var(--bone-alt)]">
-                <div className="font-mono text-sm text-[var(--ink-soft)] w-24">U{n.urgency}</div>
-                <div className="flex-1">
-                  <div className="font-heading font-bold text-base">{n.title}</div>
-                  <div className="text-xs text-[var(--ink-soft)] mt-1">{n.category.replace(/_/g, " ")} · {n.people_affected} affected</div>
+        </div>
+        {/* Abstract background elements */}
+        <div className="absolute top-0 right-0 w-1/3 h-full opacity-10 pointer-events-none">
+          <div className="absolute inset-0 border-r border-b border-[var(--signal-red)] transform rotate-12 scale-150" />
+          <div className="absolute inset-x-0 top-1/2 h-1 border-t border-[var(--signal-red)]" />
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <Stat label="MY ACTIVE REQUESTS" value={pendingCount} variant={pendingCount > 0 ? "crit" : ""} />
+        <Stat label="RESOLVED FOR ME" value={completedCount} />
+        <Stat label="VOLUNTEERS NEARBY" value={stats.volunteers_available} />
+        <Stat label="AVG RESPONSE HRS" value={stats.avg_response_hours} />
+      </div>
+
+      <div className="grid md:grid-cols-12 gap-8">
+        {/* Request Timeline */}
+        <div className="md:col-span-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading text-2xl font-black tracking-tight">Active Request Tracking</h2>
+            <Link to="/needs" className="tc-label hover:text-[var(--signal-red)] transition-colors">History View →</Link>
+          </div>
+          
+          <div className="grid gap-4">
+            {myNeeds.filter(n => n.status !== "completed").slice(0, 3).map((n) => (
+              <div key={n.id} className="tc-card border-l-4 border-l-[var(--signal-red)]">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-heading font-bold text-xl">{n.title}</div>
+                  <div className={`tc-badge ${n.urgency >= 4 ? "tc-badge-crit" : "tc-badge-outl"}`}>U{n.urgency}</div>
                 </div>
-                <span className={`tc-badge ${n.status === "completed" ? "tc-badge-res" : n.status === "pending" ? "tc-badge-high" : "tc-badge-mon"}`}>
-                  {n.status}
-                </span>
-              </Link>
+                <div className="text-sm text-[var(--ink-soft)] font-mono">{n.category.replace(/_/g, " ")} · REPORTED {new Date(n.created_at).toLocaleTimeString()}</div>
+                
+                <StepAction status={n.status} />
+                
+                <div className="flex justify-between mt-3 text-[10px] font-bold font-mono text-[var(--ink-muted)] tracking-widest uppercase">
+                  <span className={n.status === "pending" ? "text-[var(--signal-red)]" : ""}>Intake</span>
+                  <span className={n.status === "assigned" ? "text-[var(--signal-red)]" : ""}>Assigned</span>
+                  <span className={n.status === "in_progress" ? "text-[var(--signal-red)]" : ""}>In Transit</span>
+                  <span className={n.status === "completed" ? "text-green-500" : ""}>Resolved</span>
+                </div>
+              </div>
             ))}
-            {myNeeds.length === 0 && (
-              <div className="py-8 text-center text-[var(--ink-soft)] font-mono text-sm">NO REQUESTS YET. CREATE YOUR FIRST REQUEST.</div>
+            {myNeeds.filter(n => n.status !== "completed").length === 0 && (
+              <div className="tc-card border-dashed bg-transparent flex flex-col items-center justify-center py-12 text-[var(--ink-soft)]">
+                <div className="font-mono text-sm opacity-50 uppercase tracking-widest">No active requests found</div>
+                <Link to="/needs/new" className="mt-4 text-[var(--signal-red)] font-bold decoration-2 underline underline-offset-4">Report an issue now</Link>
+              </div>
             )}
           </div>
-        </section>
+        </div>
 
-        <section className="md:col-span-4 tc-card">
-          <div className="overline">Community Pulse</div>
-          <div className="font-heading text-xl font-bold mt-1">Local Response Snapshot</div>
-          <div className="space-y-3 mt-4 text-sm">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-              <span>Critical needs in network</span>
-              <span className="font-mono font-bold text-[var(--signal-red)]">{stats.critical_needs}</span>
+        {/* Safety Bulletin */}
+        <div className="md:col-span-4 space-y-6">
+          <h2 className="font-heading text-2xl font-black tracking-tight">Safety Bulletin</h2>
+          <div className="tc-card bg-[var(--bone-alt)] divide-y divide-[var(--border)] p-0">
+            <div className="p-4">
+              <div className="tc-label text-[var(--signal-red)] font-bold mb-1">STORM ALERT</div>
+              <div className="text-sm font-bold">Heavy rain expected in East District within 2 hours. Seek shelter.</div>
+              <div className="text-[10px] font-mono text-[var(--ink-muted)] mt-2">UPDATED 10:45</div>
             </div>
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-              <span>Active missions</span>
-              <span className="font-mono font-bold">{stats.missions_active}</span>
+            <div className="p-4">
+              <div className="tc-label mb-1">RELIEF UPDATE</div>
+              <div className="text-sm">Clean water distribution active at Central Hub. Bring containers.</div>
+              <div className="text-[10px] font-mono text-[var(--ink-muted)] mt-2">UPDATED 09:12 Z</div>
             </div>
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-              <span>Resolved requests</span>
-              <span className="font-mono font-bold">{stats.resolved_needs}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Average response (hours)</span>
-              <span className="font-mono font-bold">{stats.avg_response_hours}</span>
+            <div className="p-4">
+              <div className="tc-label mb-1">RESOURCE NOTICE</div>
+              <div className="text-sm">Medical team arriving at District 4 community center tomorrow morning.</div>
+              <div className="text-[10px] font-mono text-[var(--ink-muted)] mt-2">UPDATED 08:00</div>
             </div>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );
