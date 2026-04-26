@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      // By default, the Janrakshak API manages all business logic internally.
+      // Direct client-side access is heavily restricted to users with the 'admin' custom claim.
+      allow read, write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+  }
+}
