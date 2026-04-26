@@ -1,13 +1,34 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Link } from "react-router-dom";
-import { Warning, Users, Package, ClipboardText, Gauge, Sparkle } from "@phosphor-icons/react";
+import { Warning, Users, Package, ClipboardText, Gauge, Sparkle, MagnifyingGlass } from "@phosphor-icons/react";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 
+const Spark = ({ color }) => {
+  // Mock trend data for visual polish
+  const data = [...Array(12)].map((_, i) => ({ val: Math.floor(Math.random() * 20) + 10 }));
+  return (
+    <div className="tc-sparkline-container h-[40px] w-full mt-3">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <Area type="monotone" dataKey="val" stroke={color} fill={color} fillOpacity={0.1} strokeWidth={1.5} isAnimationActive={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const Stat = ({ label, value, variant, testid }) => (
-  <div className={`tc-card ${variant === "crit" ? "tc-card-crit" : ""}`} data-testid={testid}>
-    <div className="tc-overline">{label}</div>
-    <div className="font-mono font-bold text-4xl mt-3 tracking-tight">{value}</div>
+  <div className={`tc-card p-3 md:p-5 overflow-hidden ${variant === "crit" ? "tc-card-crit" : ""}`} data-testid={testid}>
+    <div className="flex justify-between items-start">
+      <div className="tc-label text-[10px] md:text-xs leading-tight">{label}</div>
+      {variant === "crit" && value > 0 && <div className="tc-pulse" />}
+    </div>
+    <div className="font-mono font-bold text-2xl md:text-4xl mt-1 md:mt-3 tracking-tighter">{value}</div>
+    <div className="hidden md:block">
+      <Spark color={variant === "crit" ? "var(--signal-red)" : "var(--ink-soft)"} />
+    </div>
   </div>
 );
 
@@ -36,29 +57,43 @@ export default function Dashboard() {
     finally { setAiLoading(false); }
   };
 
-  if (!stats) return <div className="p-8 font-mono text-sm">GATHERING INTEL...</div>;
+  if (!stats) return (
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex justify-between items-end mb-8">
+        <div className="space-y-2">
+          <div className="h-4 w-32 bg-[var(--bone-alt)] animate-pulse rounded" />
+          <div className="h-10 w-64 bg-[var(--bone-alt)] animate-pulse rounded" />
+        </div>
+        <div className="h-10 w-32 bg-[var(--bone-alt)] animate-pulse rounded" />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="tc-card h-32 animate-pulse bg-[var(--bone-alt)]" />
+        ))}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="p-6 md:p-8 space-y-6" data-testid="dashboard-page">
-      <div className="tc-scan mb-4"></div>
+    <div className="p-4 md:p-8 space-y-4 md:space-y-6" data-testid="dashboard-page">
       <div className="flex items-end justify-between">
-        <div>
-          <div className="tc-overline">JANRAKSHAK GSC-26 CONSOLE</div>
-          <h1 className="font-heading text-4xl md:text-5xl font-black tracking-tighter mt-1">Field Intelligence</h1>
+        <div className="min-w-0">
+          <div className="tc-label truncate">JANRAKSHAK CONSOLE</div>
+          <h1 className="font-heading text-3xl md:text-4xl font-black tracking-tighter mt-1 truncate">Field Intelligence</h1>
         </div>
-        <Link to="/needs/new" className="btn-primary" data-testid="dash-new-request-btn">+ New Request</Link>
+        <Link to="/needs/new" className="btn-primary shrink-0 scale-90 md:scale-100 origin-right" data-testid="dash-new-request-btn">+ New</Link>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
         <Stat label="CRITICAL" value={stats.critical_needs} variant="crit" testid="stat-critical" />
-        <Stat label="ACTIVE REQUESTS" value={stats.active_needs} testid="stat-active" />
+        <Stat label="ACTIVE REQS" value={stats.active_needs} testid="stat-active" />
         <Stat label="RESOLVED" value={stats.resolved_needs} testid="stat-resolved" />
-        <Stat label="VOLUNTEERS ON-CALL" value={stats.volunteers_available} testid="stat-volunteers-available" />
-        <Stat label="ACTIVE MISSIONS" value={stats.missions_active} testid="stat-missions-active" />
-        <Stat label="COMPLETED MISSIONS" value={stats.missions_completed} testid="stat-missions-completed" />
-        <Stat label="RESOURCE SHORTAGES" value={stats.resource_shortages} variant={stats.resource_shortages > 0 ? "crit" : ""} testid="stat-shortages" />
-        <Stat label="AVG RESPONSE (H)" value={stats.avg_response_hours} testid="stat-response" />
+        <Stat label="VOLS ON-CALL" value={stats.volunteers_available} testid="stat-volunteers-available" />
+        <Stat label="IN MISSION" value={stats.missions_active} testid="stat-missions-active" />
+        <Stat label="DONE" value={stats.missions_completed} testid="stat-missions-completed" />
+        <Stat label="SHORTAGES" value={stats.resource_shortages} variant={stats.resource_shortages > 0 ? "crit" : ""} testid="stat-shortages" />
+        <Stat label="RESP (H)" value={stats.avg_response_hours} testid="stat-response" />
       </div>
 
       <div className="grid md:grid-cols-12 gap-6">
@@ -66,7 +101,7 @@ export default function Dashboard() {
         <div className="md:col-span-8 tc-card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="tc-overline">Priority Queue</div>
+              <div className="tc-label">Priority Queue</div>
               <div className="font-heading text-xl font-bold mt-1">Top Requests — AI Ranked</div>
             </div>
             <Link to="/needs" className="btn-ghost" data-testid="dash-view-all-needs">View all</Link>
