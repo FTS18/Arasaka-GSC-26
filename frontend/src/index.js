@@ -12,8 +12,15 @@ root.render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (let registration of registrations) {
+        registration.unregister();
+        console.log('Force un-registered trapped SW:', registration);
+      }
+    });
+
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW Registered:', reg))
+      .then(reg => console.log('SW Registered Freshly:', reg))
       .catch(err => console.log('SW Registration Failed:', err));
   });
 }

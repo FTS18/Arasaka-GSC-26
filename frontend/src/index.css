@@ -8,12 +8,12 @@
   --bone: #F6F5F2;
   --bone-alt: #EBE9E4;
   --ink: #111213;
-  --ink-soft: #5C5E60;
+  --ink-soft: #444648;
   --ink-muted: #8A8D91;
   --signal-red: #E63946;
   --signal-red-dk: #C02D3A;
-  --arasaka-blue: #1e3a8a;
-  --arasaka-gold: #b49e6d;
+  --brand-blue: #1e3a8a;
+  --brand-gold: #b49e6d;
   --sage: #2A3D31;
   --sage-dk: #1C2921;
   --amber: #D97706;
@@ -76,18 +76,18 @@ body {
   top: 0;
 }
 
-/* Tactical overline (Label style) */
-.tc-overline {
+/* Tactical label style (Formerly overline) */
+.tc-label {
   font-family: 'Sora', sans-serif;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.22em;
   font-weight: 700;
   color: var(--ink-soft);
-  text-decoration: none;
+  display: block;
 }
 
-/* Arasaka Tactical Card */
+/* Operational Field Card */
 .tc-card {
   background: #FFFFFF;
   border: 1px solid var(--border);
@@ -100,9 +100,9 @@ body {
 }
 
 .tc-card:hover {
-  border-color: var(--ink);
-  transform: translate(-4px, -4px);
-  box-shadow: 8px 8px 0px var(--border);
+  border-color: var(--ink-soft);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--bone-alt);
 }
 
 .tc-card img {
@@ -155,10 +155,10 @@ body {
 }
 
 .btn-hard:hover {
-  background: var(--signal-red);
-  border-color: var(--signal-red);
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
   transform: translate(-2px, -2px);
-  box-shadow: 4px 4px 0px var(--ink);
+  box-shadow: 4px 4px 0px var(--bone-alt);
 }
 
 .btn-primary {
@@ -178,26 +178,30 @@ body {
 
 .btn-primary:hover {
   background: var(--signal-red-dk);
-  border-color: var(--signal-red-dk);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px var(--ink);
 }
 
 .btn-ghost {
-  background: transparent;
+  background: rgba(17, 18, 19, 0.05);
   color: var(--ink);
   font-family: 'Sora', sans-serif;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 12px;
-  padding: 12px 20px;
-  border: 1px solid var(--ink);
-  border-radius: 2px;
+  font-size: 11px;
+  padding: 10px 18px;
+  border: 2px solid var(--ink);
+  border-radius: 0;
   cursor: pointer;
+  transition: all 120ms ease;
 }
 
 .btn-ghost:hover {
-  background: var(--ink);
-  color: var(--bone);
+  background: var(--bone-alt);
+  color: var(--ink);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px var(--border);
 }
 
 /* Input */
@@ -224,6 +228,25 @@ body {
   padding: 11px;
 }
 
+.tc-search-input {
+  width: 100%;
+  background: var(--bone-alt);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 8px 12px 8px 40px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  transition: all 150ms ease;
+}
+
+.tc-search-input:focus {
+  outline: none;
+  background: #fff;
+  border-color: var(--ink-soft);
+  box-shadow: 0 0 0 4px rgba(17, 18, 19, 0.02);
+}
+
 .tc-label {
   font-family: 'Sora', sans-serif;
   font-size: 11px;
@@ -233,6 +256,21 @@ body {
   color: var(--ink-soft);
   display: block;
   margin-bottom: 8px;
+}
+
+.tc-table-header {
+  font-family: 'Sora', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.tc-table-header th {
+  padding: 12px 16px;
+  text-align: left;
 }
 
 /* Badges */
@@ -301,34 +339,39 @@ body {
   background-size: 32px 32px;
 }
 
-/* Scanning loader */
-@keyframes scan {
+.tc-sparkline-container {
+  height: 40px;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.tc-pulse {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal-red);
+  box-shadow: 0 0 0 rgba(230, 57, 70, 0.4);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
   0% {
-    transform: translateX(-100%);
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(230, 57, 70, 0);
   }
 
   100% {
-    transform: translateX(100%);
+    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0);
   }
 }
 
-.tc-scan {
-  position: relative;
-  overflow: hidden;
-  height: 2px;
-  background: var(--border);
-}
-
-.tc-scan::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 30%;
-  background: var(--signal-red);
-  animation: scan 1.2s linear infinite;
-}
+/* Scanning loader removed as per overline removal request */
 
 /* Infinite Marquee */
 .tc-marquee-container {
@@ -386,6 +429,24 @@ body.disaster-mode .tc-mobile-cta {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Responsive Table Scroll */
+.tc-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+}
+
+.tc-table-container table {
+  min-width: 600px;
+}
+
+@media (max-width: 639px) {
+  .tc-card {
+    padding: 16px;
+  }
+}
+
 /* Skeleton Loading State */
 .tc-skeleton {
   background: var(--bone-alt);
@@ -415,78 +476,7 @@ body.disaster-mode .tc-mobile-cta {
   }
 }
 
-/* Disaster mode body */
-body.disaster-mode {
-  background: #1A1B1C;
-  color: #F6F5F2;
-}
 
-body.disaster-mode .tc-card {
-  background: #26272A;
-  border-color: #E63946;
-  color: #F6F5F2;
-}
-
-body.disaster-mode .tc-card:hover {
-  border-color: #fff;
-}
-
-body.disaster-mode .tc-input,
-body.disaster-mode .tc-select,
-body.disaster-mode .tc-textarea {
-  background: #1A1B1C;
-  color: #fff;
-  border-color: #40424A;
-}
-
-body.disaster-mode .btn-hard {
-  background: #E63946;
-  border-color: #E63946;
-  color: #fff;
-}
-
-body.disaster-mode .btn-ghost {
-  color: #F6F5F2;
-  border-color: #F6F5F2;
-}
-
-body.disaster-mode .btn-ghost:hover {
-  background: #E63946;
-  border-color: #E63946;
-  color: #fff;
-}
-
-body.disaster-mode .tc-overline,
-body.disaster-mode .tc-label {
-  color: #BEBFC2;
-}
-
-body.disaster-mode .text-inkmuted {
-  color: #BEBFC2 !important;
-}
-
-body.disaster-mode .bg-bone {
-  background: #1A1B1C !important;
-}
-
-/* Leaflet tile filter — tactical */
-.leaflet-tile-pane {
-  filter: grayscale(0.5) contrast(1.05);
-}
-
-body.disaster-mode .leaflet-tile-pane {
-  filter: grayscale(1) brightness(0.65) contrast(1.2);
-}
-
-.leaflet-container {
-  background: #E8E6E1;
-  border: 1px solid var(--border);
-}
-
-body.disaster-mode .leaflet-container {
-  background: #0E0F10;
-  border-color: #E63946;
-}
 
 /* shadcn overrides */
 @layer base {
@@ -521,5 +511,26 @@ body.disaster-mode .leaflet-container {
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  .leaflet-container {
+    font-family: 'Sora', sans-serif !important;
+    z-index: 10;
+  }
+
+  .field-popup .leaflet-popup-content-wrapper {
+    background: var(--bone);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    box-shadow: 4px 4px 0px var(--ink);
+    padding: 2px;
+  }
+
+  .tactical-popup .leaflet-popup-tip {
+    display: none;
+  }
+
+  .leaflet-popup-content {
+    margin: 10px 12px !important;
   }
 }
