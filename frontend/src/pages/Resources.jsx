@@ -1,54 +1,31 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { TableRowSkeleton, CardSkeleton } from "@/components/SkeletonLoader";
-import { MagnifyingGlass, Warning, Plus, Package, Truck, HandHeart } from "@phosphor-icons/react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MagnifyingGlass, Warning, Plus, Package, Truck, HandHeart, MapPin } from "@phosphor-icons/react";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 
 const CATS = ["food","medicine","water","blanket","hygiene_kit","vehicle","fuel","bed","oxygen_cylinder","donation","other"];
 
 export default function ResourcesPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [res, setRes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ name: "", category: "food", quantity: 0, unit: "units", min_threshold: 10, warehouse: "Main Depot", lat: 28.6139, lng: 77.2090 });
+  const [form, setForm] = useState({ name: "", category: "food", quantity: 0, unit: "units", min_threshold: 10, warehouse: "Main Depot", lat: 0, lng: 0 }); // #10: no Delhi default
   const upd = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const load = async () => {
     setLoading(true);
     try {
-      // 🏛️ Strategy 2 & 4: Multi-Stage Bundle Loading
-      const localBundle = localStorage.getItem("bundle_resources");
-      const bundleMeta = JSON.parse(localStorage.getItem("bundle_resources_meta") || "{}");
-      
-      const now = Date.now();
-      const isStale = !bundleMeta.timestamp || (now - bundleMeta.timestamp > 3600000); // 1h Stale
-
-      if (localBundle && !isStale) {
-        setRes(JSON.parse(localBundle));
-        setLoading(false);
-        return;
-      }
-
-      // Try Server Bundle (1 read per hour total)
-      try {
-        const bundleRes = await api.get("/api/system/bundle/resources");
-        if (bundleRes.data?.data) {
-          setRes(bundleRes.data.data);
-          localStorage.setItem("bundle_resources", JSON.stringify(bundleRes.data.data));
-          localStorage.setItem("bundle_resources_meta", JSON.stringify({ timestamp: now }));
-          setLoading(false);
-          return;
-        }
-      } catch (e) {
-        console.warn("Bundle server unavailable, falling back to direct reads.");
-      }
-
-      // Final Fallback: Direct reads
+      // #4 #24: removed dead bundle-cache code (endpoint doesn't exist — caused double /api/ 404)
       const r = await api.get("/resources");
-      setRes(r.data);
+      setRes(r.data || []);
+    } catch {
+      toast.error("Failed to load resources");
     } finally {
       setLoading(false);
     }
@@ -68,7 +45,8 @@ export default function ResourcesPage() {
     } catch { toast.error("Requires admin/field_worker/donor"); }
   };
 
-  const shortages = res.filter(r => r.quantity <= r.min_threshold || r.quantity < 10);
+  // #31: only use min_threshold — the fallback `< 10` was flagging vehicles etc. as critical
+  const shortages = res.filter(r => r.quantity <= r.min_threshold);
   const filtered = res.filter(r => 
     (r.name || "").toLowerCase().includes(search.toLowerCase()) || 
     (r.category || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -76,10 +54,15 @@ export default function ResourcesPage() {
   );
 
   const handleRequisition = async (resource) => {
-    const t = toast.loading(`Initiating requisition for ${resource.name}...`);
+    // #12: prompt for quantity instead of hardcoded +20
+    const inputQty = window.prompt(`Add how many units of "${resource.name}"?`, "20");
+    if (inputQty === null) return;
+    const qty = parseInt(inputQty, 10);
+    if (isNaN(qty) || qty <= 0) { toast.error("Invalid quantity."); return; }
+    const t = toast.loading(`Requisitioning ${qty} ${resource.unit || 'units'} of ${resource.name}...`);
     try {
-      await api.patch(`/resources/${resource.id}`, { quantity: resource.quantity + 20 });
-      toast.success("Requisition successful (+20 units)", { id: t });
+      await api.patch(`/resources/${resource.id}`, { quantity: resource.quantity + qty });
+      toast.success(`Requisition complete (+${qty} units)`, { id: t });
       load();
     } catch {
       toast.error("Requisition failed. Admin access required.", { id: t });
@@ -90,22 +73,32 @@ export default function ResourcesPage() {
     <div className="p-6 md:p-8 space-y-6" data-testid="resources-page">
       <div className="flex items-end justify-between">
         <div>
-          <div className="tc-label">Inventory</div>
-          <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Resources</h1>
+          <div className="tc-label">{t("inventory")}</div>
+          <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">{t("resources")}</h1>
         </div>
         {user?.role !== "user" && (
-          <button className="btn-primary" onClick={() => setShow(true)} data-testid="add-resource-btn">+ Add Resource</button>
+          <button className="btn-primary" onClick={() => setShow(true)} data-testid="add-resource-btn">+ {t("add_resource")}</button>
         )}
       </div>
 
       {shortages.length > 0 && (
         <div className="space-y-2">
           <div className="tc-label flex items-center gap-2 text-[var(--signal-red)]">
-            <Warning weight="fill" /> Critical Requisition Queue
+            <Warning weight="fill" /> {t("critical_requisition_queue")}
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
             {loading ? (
-              [1, 2, 3].map(i => <CardSkeleton key={i} />)
+              [1, 2, 3].map(i => (
+                <div key={i} className="tc-card min-w-[240px] flex flex-col justify-between animate-pulse">
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <div className="mt-4">
+                    <Skeleton className="h-8 w-12" />
+                  </div>
+                </div>
+              ))
             ) : (
               <>
                 {shortages.map(s => (
@@ -115,7 +108,7 @@ export default function ResourcesPage() {
                       <div className="font-mono text-xs text-[var(--ink-soft)] uppercase mt-1">{s.warehouse}</div>
                       <div className="mt-3 flex items-end gap-2">
                         <span className="font-mono text-2xl font-black text-[var(--signal-red)]">{s.quantity}</span>
-                        <span className="font-mono text-xs mb-1 text-[var(--ink-soft)]">/ Min {s.min_threshold}</span>
+                        <span className="font-mono text-xs mb-1 text-[var(--ink-soft)]">/ {t("min")} {s.min_threshold}</span>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-4">
@@ -123,9 +116,13 @@ export default function ResourcesPage() {
                         onClick={() => handleRequisition(s)}
                         className="btn-hard !py-1.5 !px-3 !text-[10px] flex-1"
                       >
-                        Requisition
+                        {t("requisition")}
                       </button>
-                      <button className="btn-ghost !py-1.5 !px-3 !text-[10px] flex-1">Donation</button>
+                      {/* #11: Donation button now has a handler */}
+                      <button
+                        className="btn-ghost !py-1.5 !px-3 !text-[10px] flex-1"
+                        onClick={() => toast.info("Contact your district coordinator to arrange a donation.")}
+                      >{t("donation")}</button>
                     </div>
                   </div>
                 ))}
@@ -136,19 +133,19 @@ export default function ResourcesPage() {
       )}
 
       <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative flex-1 min-w-[300px]">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-soft)]" size={18} />
+        <div className="tc-card p-4 flex items-center gap-3 flex-1 min-w-[300px]">
+          <MagnifyingGlass weight="bold" className="text-[var(--ink-soft)]" />
           <input 
-            type="text" 
-            className="tc-search-input" 
-            placeholder="Search inventory (name, type, warehouse)..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("search_entries")} 
+            className="bg-transparent border-none outline-none font-bold text-sm flex-1" 
+            value={search} 
+            onChange={(e)=>setSearch(e.target.value)} 
+            data-testid="res-search"
           />
         </div>
         <div className="flex gap-2">
-          <div className="tc-badge tc-badge-outl whitespace-nowrap">{filtered.length} items</div>
-          <div className="tc-badge tc-badge-crit whitespace-nowrap text-[var(--signal-red)]">{shortages.length} alerts</div>
+          <div className="tc-badge tc-badge-outl whitespace-nowrap">{filtered.length} {t("items")}</div>
+          <div className="tc-badge tc-badge-crit whitespace-nowrap text-[var(--signal-red)]">{shortages.length} {t("alerts")}</div>
         </div>
       </div>
 
@@ -166,7 +163,16 @@ export default function ResourcesPage() {
           </thead>
           <tbody>
             {loading ? (
-              [1, 2, 3, 4, 5, 6].map(i => <TableRowSkeleton key={i} />)
+              [1, 2, 3, 4, 5, 6].map(i => (
+                <tr key={i}>
+                  <td className="p-4"><Skeleton className="h-4 w-32" /></td>
+                  <td className="p-4"><Skeleton className="h-4 w-24" /></td>
+                  <td className="p-4"><Skeleton className="h-4 w-12" /></td>
+                  <td className="p-4"><Skeleton className="h-4 w-12" /></td>
+                  <td className="p-4"><Skeleton className="h-4 w-32" /></td>
+                  <td className="p-4"><Skeleton className="h-6 w-20" /></td>
+                </tr>
+              ))
             ) : filtered.map(r => {
               const low = r.quantity <= r.min_threshold;
               return (
@@ -198,15 +204,33 @@ export default function ResourcesPage() {
               </select>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div><label className="tc-label">Qty</label><input type="number" className="tc-input" value={form.quantity} onChange={(e)=>upd("quantity", e.target.value)} data-testid="res-qty" /></div>
+              <div><label className="tc-label">Qty</label><input type="number" step="1" min="0" className="tc-input" value={form.quantity} onChange={(e)=>upd("quantity", e.target.value)} data-testid="res-qty" /></div>
               <div><label className="tc-label">Unit</label><input className="tc-input" value={form.unit} onChange={(e)=>upd("unit", e.target.value)} /></div>
               <div><label className="tc-label">Min</label><input type="number" className="tc-input" value={form.min_threshold} onChange={(e)=>upd("min_threshold", e.target.value)} /></div>
             </div>
             <div><label className="tc-label">Warehouse</label><input className="tc-input" value={form.warehouse} onChange={(e)=>upd("warehouse", e.target.value)} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="tc-label">Latitude</label><input className="tc-input" value={form.lat} onChange={(e)=>upd("lat", e.target.value)} /></div>
-              <div><label className="tc-label">Longitude</label><input className="tc-input" value={form.lng} onChange={(e)=>upd("lng", e.target.value)} /></div>
-            </div>
+              {/* #10: GPS button instead of raw lat/lng inputs */}
+              <div>
+                <label className="tc-label flex items-center gap-1"><MapPin size={12} weight="fill"/> Location</label>
+                <div className="flex gap-2">
+                  <input
+                    className="tc-input flex-1 font-mono text-xs"
+                    readOnly
+                    value={form.lat && form.lng ? `${Number(form.lat).toFixed(4)}, ${Number(form.lng).toFixed(4)}` : "Not set — use GPS"}
+                  />
+                  <button type="button" className="btn-ghost border-2 border-[var(--ink)] px-3 text-xs font-black"
+                    onClick={() => {
+                      if (!navigator.geolocation) { toast.error("GPS not supported"); return; }
+                      const t = toast.loading("Acquiring location...");
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => { upd("lat", pos.coords.latitude); upd("lng", pos.coords.longitude); toast.success("Location set", { id: t }); },
+                        () => toast.error("GPS denied", { id: t }),
+                        { timeout: 5000 }
+                      );
+                    }}
+                  >GPS</button>
+                </div>
+              </div>
             <div className="flex gap-2 justify-end">
               <button type="button" className="btn-ghost" onClick={() => setShow(false)}>Cancel</button>
               <button className="btn-primary" data-testid="res-submit">Save</button>

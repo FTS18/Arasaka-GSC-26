@@ -3,40 +3,59 @@ import { useParams, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { Sparkle, MapPin, CheckCircle, Clock, Warning, ShieldCheck, Camera, FileMagnifyingGlass, Microphone } from "@phosphor-icons/react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const MissionTimeline = ({ need }) => {
+  const { t } = useI18n();
   const steps = [
-    { id: 'created', label: 'Mission Created', time: need.created_at, active: !!need.created_at },
-    { id: 'assigned', label: 'Asset Assigned', time: need.assigned_at, active: need.status !== 'pending' },
-    { id: 'enroute', label: 'En Route', time: need.enroute_at, active: need.status === 'in_progress' || need.status === 'completed' },
-    { id: 'proof', label: 'Proof Uploaded', time: need.evidence_urls?.[0] ? need.updated_at : null, active: (need.evidence_urls?.length || 0) > 0 },
-    { id: 'verified', label: 'AI Verified', time: need.ai_verification?.timestamp, active: !!need.ai_verification, color: 'text-blue-600' },
-    { id: 'completed', label: 'Mission Closed', time: need.completed_at, active: need.status === 'completed' },
+    { id: 'created', label: t('mission_created'), time: need.created_at, active: !!need.created_at },
+    { id: 'assigned', label: t('asset_assigned'), time: need.assigned_at, active: need.status !== 'pending' },
+    { id: 'enroute', label: t('en_route'), time: need.enroute_at, active: need.status === 'in_progress' || need.status === 'completed' },
+    { id: 'proof', label: t('proof_uploaded'), time: need.proof_urls?.[0] ? need.updated_at : null, active: (need.proof_urls?.length || 0) > 0 },
+    { id: 'verified', label: t('ai_verified'), time: need.ai_verification?.timestamp, active: !!need.ai_verification, color: 'text-blue-600' },
+    { id: 'completed', label: t('mission_closed'), time: need.completed_at, active: need.status === 'completed' },
   ];
 
   return (
-    <div className="bg-[var(--bone)] border-2 border-[var(--border)] p-6 shadow-[4px_4px_0px_var(--bone-alt)]">
-      <div className="tc-label mb-6 tracking-[0.2em] opacity-60">TACTICAL TIMELINE</div>
-      <div className="space-y-6">
-        {steps.map((step, i) => (
-          <div key={step.id} className={`flex items-start gap-4 ${step.active ? "opacity-100" : "opacity-30"}`}>
-            <div className="flex flex-col items-center">
-              <div className={`w-3 h-3 rounded-full border-2 ${step.active ? "bg-[var(--signal-red)] border-[var(--signal-red)]" : "bg-[var(--bone-alt)] border-[var(--border)]"}`} />
-              {i < steps.length - 1 && <div className="w-[1px] h-8 bg-[var(--border)]" />}
+    <div className="space-y-4">
+      <div className="bg-[var(--bone)] border-2 border-[var(--border)] p-6 shadow-[4px_4px_0px_var(--bone-alt)]">
+        <div className="tc-label mb-6 tracking-[0.2em] opacity-60">TACTICAL TIMELINE</div>
+        <div className="space-y-6">
+          {steps.map((step, i) => (
+            <div key={step.id} className={`flex items-start gap-4 ${step.active ? "opacity-100" : "opacity-30"}`}>
+              <div className="flex flex-col items-center">
+                <div className={`w-3 h-3 rounded-full border-2 ${step.active ? "bg-[var(--signal-red)] border-[var(--signal-red)]" : "bg-[var(--bone-alt)] border-[var(--border)]"}`} />
+                {i < steps.length - 1 && <div className="w-[1px] h-8 bg-[var(--border)]" />}
+              </div>
+              <div className="flex-1 -mt-1">
+                <div className={`text-[10px] font-black uppercase tracking-tight ${step.color || 'text-[var(--ink)]'}`}>{step.label}</div>
+                {step.active && step.time && (
+                  <div className="text-[8px] font-mono opacity-60">{new Date(step.time).toLocaleString()}</div>
+                )}
+              </div>
             </div>
-            <div className="flex-1 -mt-1">
-              <div className={`text-[10px] font-black uppercase tracking-tight ${step.color || 'text-[var(--ink)]'}`}>{step.label}</div>
-              {step.active && step.time && (
-                <div className="text-[8px] font-mono opacity-60">{new Date(step.time).toLocaleString()}</div>
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+
+      {need.ai_verification && (
+        <div className="bg-blue-50 border-2 border-blue-200 p-4 font-mono text-[9px]">
+          <div className="flex items-center gap-2 mb-2 text-blue-800 font-bold uppercase tracking-widest">
+            <ShieldCheck size={16} /> AI AUDIT CERTIFIED: {need.ai_verification.reliability_score}% RELIABILITY
+          </div>
+          <div className="opacity-70 text-blue-900 mb-2">
+            DETECTION: {need.ai_verification.detected_items?.join(", ") || "None"}
+          </div>
+          <div className="italic text-blue-700">
+            "{need.ai_verification.audit_notes || need.ai_verification.authenticity_justification}"
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -50,6 +69,7 @@ const tacticalIcon = L.divIcon({
 
 export default function NeedDetail() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const { id } = useParams();
   const [need, setNeed] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -64,13 +84,19 @@ export default function NeedDetail() {
     try {
       const r = await api.get(`/needs/${id}`);
       setNeed(r.data);
-      
+
       if (r.data.status !== 'pending' && r.data.assigned_volunteer_ids?.length > 0) {
+        // Show first assigned volunteer — #33: guard multiple assignees
         const v = await api.get(`/volunteers/${r.data.assigned_volunteer_ids[0]}`);
         setAssignedVol(v.data);
+      } else if (r.data.status === 'pending') {
+        // #27: Only call AI matching for pending needs — save credits
+        try {
+          const m = await api.post(`/matching/suggest/${id}`);
+          setMatches(m.data || []);
+        } catch { setMatches([]); }
+        setAssignedVol(null);
       } else {
-        const m = await api.post(`/matching/suggest/${id}`);
-        setMatches(m.data);
         setAssignedVol(null);
       }
     } catch {}
@@ -83,14 +109,14 @@ export default function NeedDetail() {
     try {
       const r = await api.post(`/matching/explain/${id}`);
       setExplain(r.data.recommendation);
-    } catch { toast.error("AI unavailable"); }
+    } catch { toast.error(t('ai_unavailable')); }
     finally { setLoading(false); }
   };
 
   const autoAssign = async () => {
     try {
       await api.post(`/matching/auto-assign/${id}`);
-      toast.success("Auto-assigned");
+      toast.success(t('auto_assigned'));
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
   };
@@ -107,18 +133,26 @@ export default function NeedDetail() {
   };
 
   const manualAssign = async (vid) => {
+    const t = toast.loading("Assigning asset...");
     try {
       await api.patch(`/needs/${id}`, { status: "assigned", assigned_volunteer_ids: [vid] });
-      toast.success("Assigned");
+      toast.success("Asset Assigned — Mission Active", { id: t });
       load();
-    } catch { toast.error("Requires admin/field_worker"); }
+    } catch (e) {
+      const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || "Assignment failed";
+      toast.error(`Assignment Error: ${msg}`, { id: t });
+    }
   };
 
   const markComplete = async () => {
     try {
-      await api.patch(`/needs/${id}`, { status: "completed", completed_at: new Date().toISOString() });
+      // #29: server sets completed_at — don't set from frontend
+      await api.patch(`/needs/${id}`, { status: "completed" });
       toast.success("Marked complete"); load();
-    } catch { toast.error("Failed"); }
+    } catch (e) {
+      const msg = e?.response?.data?.detail || e?.message || "Failed";
+      toast.error(msg);
+    }
   };
 
   const handleAiVerify = async () => {
@@ -126,7 +160,8 @@ export default function NeedDetail() {
     setVerifying(true);
     const t = toast.loading("AI Strategic Audit in progress...");
     try {
-      const r = await api.post(`/api/needs/${id}/verify-proof`, { image: need.evidence_urls[0] });
+      // #1: fixed double /api/ prefix
+      const r = await api.post(`/needs/${id}/verify-proof`, { image: need.evidence_urls[0] });
       toast.success(`Audit Complete: ${r.data.reliability_score}% Accuracy`, { id: t });
       load();
     } catch {
@@ -162,7 +197,8 @@ export default function NeedDetail() {
     reader.onloadend = async () => {
       const base64Audio = reader.result.split(',')[1];
       try {
-        await api.post(`/api/needs/${id}/transcribe-note`, { 
+        // #2: fixed double /api/ prefix
+        await api.post(`/needs/${id}/transcribe-note`, { 
           audio: base64Audio,
           mime_type: 'audio/webm'
         });
@@ -176,7 +212,58 @@ export default function NeedDetail() {
     };
   };
 
-  if (!need) return <div className="p-8 font-mono">LOADING...</div>;
+  // #22: proper loading skeleton
+  if (!need) return (
+    <div className="p-4 md:p-8 space-y-10 animate-pulse">
+      <div className="space-y-4">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-14 w-full max-w-2xl" />
+        <Skeleton className="h-4 w-1/3" />
+      </div>
+
+      <div className="grid lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-8">
+          {/* Main Content Skeleton */}
+          <div className="tc-card p-6 space-y-6">
+            <Skeleton className="h-6 w-48" />
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+            <div className="h-[300px] w-full bg-[var(--bone-alt)] rounded-sm overflow-hidden">
+               <Skeleton className="h-full w-full" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 space-y-8">
+          {/* Tactical Timeline Skeleton */}
+          <div className="tc-card p-6">
+            <Skeleton className="h-3 w-32 mb-8" />
+            <div className="space-y-8 pl-4 border-l-2 border-[var(--bone-alt)] relative">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="relative">
+                  <div className="absolute -left-[22px] top-1 w-3 h-3 rounded-full bg-[var(--bone-alt)]" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-2 w-24" />
+                    <Skeleton className="h-2 w-16" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6" data-testid="need-detail-page">
@@ -193,7 +280,8 @@ export default function NeedDetail() {
             </h1>
             <div className="flex flex-wrap items-center gap-2 pt-2">
               <div className={`px-3 py-1.5 border-2 border-[var(--border)] text-[10px] font-black flex items-center gap-2 shadow-[2px_2px_0px_var(--bone-alt)] ${need.urgency >= 4 ? "bg-[var(--signal-red)] text-white border-[var(--signal-red)] shadow-[2px_2px_0px_rgba(230,57,70,0.2)]" : "bg-[var(--bone)] text-[var(--ink)]"}`}>
-                Urgency: S{need.urgency}
+                {/* #7: U = Urgency, not S = Severity */}
+                Urgency: U{need.urgency}
               </div>
               <div className="px-3 py-1.5 border-2 border-[var(--border)] bg-[var(--bone-alt)] text-[var(--ink)] text-[10px] font-black shadow-[2px_2px_0px_var(--bone-alt)]">
                 Sector: {(need.category || "other").replace(/_/g, " ")}
@@ -256,12 +344,17 @@ export default function NeedDetail() {
                     Geospatial Pinpoint
                   </h3>
                   <div className="h-[200px] w-full border-2 border-[var(--border)] shadow-[4px_4px_0px_var(--bone-alt)] relative overflow-hidden group">
-                    <MapContainer center={[need.location.lat, need.location.lng]} zoom={13} scrollWheelZoom={false} className="h-full w-full z-0">
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      <Marker position={[need.location.lat, need.location.lng]} icon={tacticalIcon}>
-                        <Popup>Target: {need.title}</Popup>
-                      </Marker>
-                    </MapContainer>
+                    {/* #16: null-guard prevents crash when location is missing */}
+                    {need.location?.lat && need.location?.lng ? (
+                      <MapContainer center={[need.location.lat, need.location.lng]} zoom={13} scrollWheelZoom={false} className="h-full w-full z-0">
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <Marker position={[need.location.lat, need.location.lng]} icon={tacticalIcon}>
+                          <Popup>Target: {need.title}</Popup>
+                        </Marker>
+                      </MapContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-[10px] font-mono text-[var(--ink-muted)] tracking-widest">No location data</div>
+                    )}
                   </div>
                 </div>
                 {need.evidence_urls?.length > 0 && (
@@ -323,8 +416,9 @@ export default function NeedDetail() {
                 </div>
                 <div className="text-3xl font-black text-blue-700">{need.ai_verification.reliability_score}%</div>
               </div>
+              {/* #18: removed literal quote text nodes — use expression with null guard */}
               <p className="text-xs font-bold text-blue-900/70 italic bg-white/50 p-3 border-l-4 border-blue-500 mb-4">
-                "{need.ai_verification.authenticity_justification}"
+                {need.ai_verification?.authenticity_justification || "Verification completed successfully."}
               </p>
               <div className="flex flex-wrap gap-2">
                 {(need.ai_verification.detected_items || []).map(item => (

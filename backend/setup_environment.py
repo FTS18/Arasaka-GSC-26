@@ -96,8 +96,8 @@ def main():
                     "location": {"lat": v_lat + random.uniform(-0.03, 0.03), "lng": v_lng + random.uniform(-0.03, 0.03)},
                     "urgency": random.randint(1, 5),
                     "severity": random.randint(1, 5),
-                    "population": random.randint(5, 200), # Fixed for POP field
-                    "weather_code": f"W{random.randint(1, 4)}", # Fixed for Wundefined
+                    "people_affected": random.randint(5, 200), # Fixed naming
+                    "weather_factor": random.randint(1, 5), # Fixed naming
                     "status": status,
                     "priority_score": random.randint(20, 99),
                     "assigned_volunteer_ids": [vid] if status != "pending" else [],

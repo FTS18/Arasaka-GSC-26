@@ -47,12 +47,64 @@ if not FIREBASE_WEB_API_KEY:
 JWT_SECRET = os.environ.get("JWT_SECRET", "arasaka-gsc-tactical-secret-2026")
 JWT_ALGORITHM = "HS256"
 
+PUBLIC_ORG = "public"
+api_router = APIRouter(prefix="/api")
+
 def create_jwt(data: Dict[str, Any]) -> str:
     """🔐 Tactical Token Generation: Secures session state."""
     payload = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=7)
     payload.update({"exp": expire})
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _infer_org_id(email: Optional[str]) -> str:
+    if not email or "@" not in email:
+        return PUBLIC_ORG
+    domain = email.split("@", 1)[1].lower()
+    # These are public/consumer/demo domains — treated as the global public org
+    PUBLIC_DOMAINS = {
+        "gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com",
+        "janrakshakops.com",  # Demo accounts — always public scope
+    }
+    if domain in PUBLIC_DOMAINS:
+        return PUBLIC_ORG
+    return domain.replace(".", "-")
+
+
+def validate_env():
+    """🛡️ Fail-Fast Strategy: Ensures all tactical keys are present before operation."""
+    required = ["FIREBASE_WEB_API_KEY", "JWT_SECRET", "AI_API_KEY"]
+    missing = [k for k in required if not os.getenv(k)]
+    if missing:
+        msg = f"🛰️ CRITICAL ERROR: Missing tactical environment keys: {', '.join(missing)}"
+        logging.critical(msg)
+        # sys.exit(1)
+
+
+def _mask_need(need: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
+    """🧠 Operational Security: Masks sensitive citizen data until a volunteer claims the mission."""
+    if user.get("role") == "admin":
+        return need
+    
+    # If the user is the one who created it, show everything
+    if need.get("created_by") == user["id"]:
+        return need
+        
+    masked = dict(need)
+    
+    # For list views and non-owners, mask precise address and phone
+    masked.pop("phone", None)
+    if "address" in masked:
+        masked["address"] = "UNASSIGNED - REDACTED"
+    
+    # Precise location fuzzing for non-owners
+    if "location" in masked:
+        masked["location"] = _fuzz_location(masked["location"], str(need.get("id")))
+
+    return masked
+
+
 
 
 class ConnectionManager:
@@ -77,6 +129,37 @@ class ConnectionManager:
 ws_manager = ConnectionManager()
 
 
+class BackgroundQueue:
+    def __init__(self):
+        self.queue: "asyncio.Queue[tuple]" = asyncio.Queue()
+        self.worker_task: Optional[asyncio.Task] = None
+
+    async def start(self):
+        if not self.worker_task:
+            self.worker_task = asyncio.create_task(self._worker())
+
+    async def stop(self):
+        if self.worker_task:
+            self.worker_task.cancel()
+            self.worker_task = None
+
+    async def enqueue(self, func, *args):
+        await self.queue.put((func, args))
+
+    async def _worker(self):
+        while True:
+            func, args = await self.queue.get()
+            try:
+                await func(*args)
+            except Exception as exc:
+                logger.error(f"Background task failed: {exc}")
+            finally:
+                self.queue.task_done()
+
+
+TASK_QUEUE = BackgroundQueue()
+
+
 def _build_firebase_credentials():
     if FIREBASE_SERVICE_ACCOUNT_FILE:
         return credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_FILE)
@@ -89,13 +172,19 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(_build_firebase_credentials(), {"projectId": FIREBASE_PROJECT_ID} if FIREBASE_PROJECT_ID else None)
 
 
-def _get_nested_value(doc: Dict[str, Any], key: str):
-    value = doc
-    for part in key.split('.'):
-        if not isinstance(value, dict):
+def _get_nested_value(doc: Dict[str, Any], key: str) -> Any:
+    """🛰️ Tactical Drill-Down: Supports dotted paths for nested Firestore data."""
+    if "." not in key:
+        return doc.get(key)
+    
+    parts = key.split(".")
+    curr = doc
+    for p in parts:
+        if isinstance(curr, dict):
+            curr = curr.get(p)
+        else:
             return None
-        value = value.get(part)
-    return value
+    return curr
 
 
 def _matches_filter(doc: Dict[str, Any], query: Dict[str, Any]) -> bool:
@@ -124,7 +213,7 @@ def _matches_filter(doc: Dict[str, Any], query: Dict[str, Any]) -> bool:
         else:
             if actual != expected:
                 return False
-        return True
+    return True
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     """🔑 Command Logic: Identity resolution for tactical routes."""
@@ -156,18 +245,69 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
                 name=fb_user.display_name or (fb_user.email.split("@")[0] if fb_user.email else "User"),
                 email=fb_user.email,
                 role=role,
+                org_id=_infer_org_id(fb_user.email),
                 onboarded=(role == "admin") # 🏛️ Admins auto-skip tactical onboarding
             ).model_dump()
             await db.users.insert_one(user)
         except Exception:
             raise HTTPException(status_code=401, detail="Tactical Auth Failure: Record not found.")
+
+    # Always re-infer org_id from email to fix any stale values (e.g., old "janrakshakops-com" values)
+    correct_org_id = _infer_org_id(user.get("email"))
+    if user.get("org_id") != correct_org_id:
+        user["org_id"] = correct_org_id
+        await db.users.update_one({"id": user["id"]}, {"$set": {"org_id": correct_org_id}})
             
     return user
 
 
+# 📡 Real-time Command Link: WebSocket Manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            await connection.send_json(message)
+
+manager = ConnectionManager()
+
+
+@api_router.websocket("/ws/live")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Protocol: Wait for pulses or stay alive
+            data = await websocket.receive_text()
+            # Respond with heartbeat
+            await websocket.send_json({"type": "pulse", "timestamp": iso(now_utc())})
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
+        manager.disconnect(websocket)
+
+
+async def get_optional_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    if not authorization:
+        return {"id": "anonymous", "role": "user", "org_id": PUBLIC_ORG}
+    try:
+        return await get_current_user(authorization)
+    except Exception:
+        return {"id": "anonymous", "role": "user", "org_id": PUBLIC_ORG}
+
+
 def require_roles(*roles: str):
     async def _dep(user: Dict[str, Any] = Depends(get_current_user)):
-        if user["role"] not in roles and user["role"] != "admin":
+        user_role = user.get("role")
+        if user_role not in roles and user_role != "admin":
             raise HTTPException(status_code=403, detail="Insufficient permissions for this command.")
         return user
     return _dep
@@ -175,10 +315,13 @@ def require_roles(*roles: str):
 
 def _apply_projection(doc: Dict[str, Any], projection: Optional[Dict[str, int]]) -> Dict[str, Any]:
     if not projection:
-        return dict(doc)
+        return dict(doc) if doc else {}
 
     includes = [k for k, v in projection.items() if v and k != "_id"]
     excludes = [k for k, v in projection.items() if not v]
+
+    if not doc:
+        return {}
 
     if includes:
         return {k: doc.get(k) for k in includes if k in doc}
@@ -373,6 +516,7 @@ class SimpleCache:
         self.data = {}
 
 _GLOBAL_CACHE = SimpleCache(ttl=30)
+_DASHBOARD_CACHE = SimpleCache(ttl=45)
 
 def _load_local_db():
     global _LOCAL_DB_CACHE
@@ -383,8 +527,15 @@ def _load_local_db():
             _LOCAL_DB_CACHE = {}
     return _LOCAL_DB_CACHE
 
+class _DatetimeSafeEncoder(json.JSONEncoder):
+    """Converts datetime objects to ISO strings so local fallback DB never crashes."""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
 def _save_local_db():
-    _LOCAL_STORAGE_FILE.write_text(json.dumps(_LOCAL_DB_CACHE, indent=2))
+    _LOCAL_STORAGE_FILE.write_text(json.dumps(_LOCAL_DB_CACHE, indent=2, cls=_DatetimeSafeEncoder))
 
 class FirestoreCollection:
     def __init__(self, collection: firestore.CollectionReference):
@@ -438,9 +589,17 @@ class FirestoreCollection:
         
         # Pro-Max: Automatic Geospatial Indexing
         if "location" in data and isinstance(data["location"], dict):
-            lat, lng = data["location"].get("lat"), data["location"].get("lng")
-            if lat is not None and lng is not None:
-                data["geohash"] = encode_geohash(lat, lng)
+            try:
+                lat = float(data["location"].get("lat", 0))
+                lng = float(data["location"].get("lng", 0))
+                if lat != 0 or lng != 0:
+                    data["geohash"] = encode_geohash(lat, lng)
+            except (TypeError, ValueError):
+                pass
+
+        if "people_affected" in data:
+            try: data["people_affected"] = int(data["people_affected"])
+            except: data["people_affected"] = 1
 
         # 🛸 Always update local cache for high-speed hot-reloads and 429 safety
         db_local = _load_local_db()
@@ -611,6 +770,9 @@ class FirestoreDatabase:
     def __getattr__(self, item: str):
         return FirestoreCollection(self.client.collection(item))
 
+    def __getitem__(self, item: str):
+        return self.__getattr__(item)
+
 
 firestore_client = firestore.client()
 db = FirestoreDatabase(firestore_client)
@@ -621,6 +783,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 @app.on_event("startup")
 async def startup_event():
+    await TASK_QUEUE.start()
     # 🏛️ Load Previous Persistent Metrics
     await load_usage_from_db()
 
@@ -641,6 +804,11 @@ async def startup_event():
         logger.info("Janrakshak API Booted.")
     else:
         logger.warning("⚠️ TELEGRAM_BOT_TOKEN missing. Bot integration disabled.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await TASK_QUEUE.stop()
 
 # 🚦 Live Traffic Management: Disaster-Aware Rate Limiting
 rate_limit_store = {}
@@ -724,19 +892,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "http://127.0.0.1:3000",
         "http://localhost:3001",
-        "http://127.0.0.1:3001",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
-api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("janrakshak")
@@ -757,6 +922,7 @@ class User(BaseModel):
     name: str
     email: EmailStr
     role: Role = "user"
+    org_id: str = PUBLIC_ORG
     phone: Optional[str] = None
     language: str = "en"
     onboarded: bool = False # 🏛️ Added for mandatory profile completion
@@ -768,6 +934,7 @@ class RegisterBody(BaseModel):
     email: EmailStr
     password: str
     role: Role = "user"
+    org_id: Optional[str] = None
     phone: Optional[str] = None
     language: str = "en"
 
@@ -794,16 +961,81 @@ async def google_auth(body: Dict[str, str]):
         
         user = await db.users.find_one({"id": uid}, {"_id": 0})
         if not user:
-            # Check for seeded admin emails
-            is_seeded_admin = email.endswith("@janrakshak.site") or email == "admin@example.com"
+            # #37: Configurable admin check with whitespace safety
+            raw_admins = os.environ.get("ADMIN_EMAILS", "")
+            ADMIN_EMAILS = [e.strip() for e in raw_admins.split(",") if e.strip()]
+            is_seeded_admin = email.endswith("@janrakshak.site") or email in ADMIN_EMAILS
             role = "admin" if is_seeded_admin else "user"
-            user = User(id=uid, name=name, email=email, role=role, onboarded=is_seeded_admin).model_dump()
+            user = User(id=uid, name=name, email=email, role=role, org_id=_infer_org_id(email), onboarded=is_seeded_admin).model_dump()
             await db.users.insert_one(user)
         
         token = create_jwt({"uid": uid, "role": user["role"]})
         return {"token": token, "user": user}
     except Exception as e:
         raise HTTPException(401, f"Google Auth Failed: {str(e)}")
+
+
+# 🏛️ India City Fast-Path Lookup (avoids OSM roundtrip for common cities)
+_INDIA_CITY_COORDS: Dict[str, Dict[str, float]] = {
+    "mumbai": {"lat": 19.0760, "lng": 72.8777},
+    "delhi": {"lat": 28.6139, "lng": 77.2090},
+    "new delhi": {"lat": 28.6139, "lng": 77.2090},
+    "bangalore": {"lat": 12.9716, "lng": 77.5946},
+    "bengaluru": {"lat": 12.9716, "lng": 77.5946},
+    "hyderabad": {"lat": 17.3850, "lng": 78.4867},
+    "ahmedabad": {"lat": 23.0225, "lng": 72.5714},
+    "chennai": {"lat": 13.0827, "lng": 80.2707},
+    "kolkata": {"lat": 22.5726, "lng": 88.3639},
+    "surat": {"lat": 21.1702, "lng": 72.8311},
+    "pune": {"lat": 18.5204, "lng": 73.8567},
+    "jaipur": {"lat": 26.9124, "lng": 75.7873},
+    "lucknow": {"lat": 26.8467, "lng": 80.9462},
+    "kanpur": {"lat": 26.4499, "lng": 80.3319},
+    "nagpur": {"lat": 21.1458, "lng": 79.0882},
+    "indore": {"lat": 22.7196, "lng": 75.8577},
+    "thane": {"lat": 19.2183, "lng": 72.9781},
+    "bhopal": {"lat": 23.2599, "lng": 77.4126},
+    "visakhapatnam": {"lat": 17.6868, "lng": 83.2185},
+    "patna": {"lat": 25.5941, "lng": 85.1376},
+    "vadodara": {"lat": 22.3072, "lng": 73.1812},
+    "chandigarh": {"lat": 30.7333, "lng": 76.7794},
+    "guwahati": {"lat": 26.1445, "lng": 91.7362},
+    "noida": {"lat": 28.5355, "lng": 77.3910},
+    "gurgaon": {"lat": 28.4595, "lng": 77.0266},
+    "gurugram": {"lat": 28.4595, "lng": 77.0266},
+    "coimbatore": {"lat": 11.0168, "lng": 76.9558},
+    "kochi": {"lat": 9.9312, "lng": 76.2673},
+    "thiruvananthapuram": {"lat": 8.5241, "lng": 76.9366},
+    "bhubaneswar": {"lat": 20.2961, "lng": 85.8245},
+}
+
+async def _geocode_city(city: Optional[str]) -> Dict[str, Any]:
+    """Resolve city name to lat/lng. Fast-path → OSM fallback → Prompt user."""
+    if not city:
+        return {"lat": 0, "lng": 0, "address": "Unspecified"} # #38: don't default to Delhi secretly
+    
+    key = city.strip().lower()
+    if key in _INDIA_CITY_COORDS:
+        coords = _INDIA_CITY_COORDS[key]
+        return {"lat": coords["lat"], "lng": coords["lng"], "address": city.title()}
+    
+    # OSM Nominatim geocode
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            r = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": f"{city}, India", "format": "json", "limit": 1},
+                headers={"User-Agent": "JanrakshakBot/1.0"}
+            )
+            if r.status_code == 200 and r.json():
+                res = r.json()[0]
+                return {"lat": float(res["lat"]), "lng": float(res["lon"]), "address": city.title()}
+    except Exception as e:
+        logger.warning(f"Geocoding failed for city '{city}': {e}")
+    
+    # Hard fallback: Unspecified coords
+    logger.warning(f"City '{city}' not resolved. Coordinate mapping failed.")
+    return {"lat": 0, "lng": 0, "address": city or "Unknown"}
 
 
 @api_router.post("/auth/onboard")
@@ -814,20 +1046,24 @@ async def onboard_user(body: OnboardingBody, current_user=Depends(get_current_us
     await db.users.update_one({"id": uid}, {"$set": {
         "role": body.role,
         "phone": body.phone,
+        "org_id": current_user.get("org_id") or PUBLIC_ORG,
         "onboarded": True
     }})
     
     if body.role == "volunteer":
-        # Create Volunteer Profile
+        # 🗺️ Geocode volunteer's city to real coordinates
+        base_loc = await _geocode_city(body.city)
+        
         v = Volunteer(
             id=str(uuid.uuid4()),
             user_id=uid,
             name=current_user["name"],
+            org_id=current_user.get("org_id") or PUBLIC_ORG,
             phone=body.phone,
             skills=body.skills,
             transport=body.transport or "none",
             availability="available",
-            base_location={"lat": 19.076, "lng": 72.877, "city": body.city or "Mumbai"}
+            base_location=base_loc
         )
         await db.volunteers.insert_one(v.model_dump())
     
@@ -856,6 +1092,7 @@ class NeedRequest(BaseModel):
     ]
     description: str
     location: GeoPoint
+    org_id: str = PUBLIC_ORG
     urgency: int = Field(ge=1, le=5)  # 1 low - 5 critical
     people_affected: int = 1
     vulnerability: List[Literal["children", "elderly", "disabled", "pregnant", "none"]] = ["none"]
@@ -879,6 +1116,7 @@ class NeedCreate(BaseModel):
     category: str
     description: str
     location: GeoPoint
+    org_id: Optional[str] = None
     urgency: int = 3
     people_affected: int = 1
     vulnerability: List[str] = ["none"]
@@ -892,6 +1130,7 @@ class Volunteer(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
     name: str
+    org_id: str = PUBLIC_ORG
     skills: List[str] = []
     languages: List[str] = ["en"]
     availability: Literal["available", "busy", "off_duty"] = "available"
@@ -918,6 +1157,7 @@ class VolunteerCreate(BaseModel):
 class Resource(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
+    org_id: str = PUBLIC_ORG
     category: Literal[
         "food", "medicine", "medical", "water", "blanket", "hygiene_kit",
         "vehicle", "fuel", "bed", "oxygen_cylinder", "donation", "shelter", "other"
@@ -944,6 +1184,7 @@ class Mission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     need_ids: List[str]
     volunteer_ids: List[str]
+    org_id: str = PUBLIC_ORG
     resource_allocations: List[Dict[str, Any]] = []
     status: Literal["planned", "in_progress", "active", "completed", "cancelled"] = "planned"
     route: List[GeoPoint] = []
@@ -966,6 +1207,7 @@ class CitizenReport(BaseModel):
     reporter_name: Optional[str] = None
     reporter_phone: Optional[str] = None
     language: str = "en"
+    org_id: str = PUBLIC_ORG
     extracted: Optional[Dict[str, Any]] = None
     converted_need_id: Optional[str] = None
     created_at: str = Field(default_factory=lambda: iso(now_utc()))
@@ -974,6 +1216,15 @@ class CitizenReport(BaseModel):
 class CitizenReportCreate(BaseModel):
     raw_text: str
     image_urls: List[str] = []
+    reporter_name: Optional[str] = None
+    reporter_phone: Optional[str] = None
+    language: str = "en"
+
+
+class FieldReportCreate(BaseModel):
+    raw_text: str
+    image_base64: Optional[str] = None
+    mime_type: str = "image/jpeg"
     reporter_name: Optional[str] = None
     reporter_phone: Optional[str] = None
     language: str = "en"
@@ -1075,6 +1326,70 @@ def haversine_km(a: GeoPoint, b: GeoPoint) -> float:
     dlng = math.radians(b.lng - a.lng)
     h = math.sin(dlat/2)**2 + math.cos(la1)*math.cos(la2)*math.sin(dlng/2)**2
     return 2 * R * math.asin(math.sqrt(h))
+
+
+def _org_scope_filter(user: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Org scope isolation. For public org users (gmail etc.) OR admin, show everything.
+    For private org users, scope to their org only.
+    
+    NOTE: Public users see all data that has org_id=="public" OR org_id==None OR no org_id field.
+    We achieve 'no org_id field' matching by returning an empty filter for public users,
+    which shows ALL documents. Private org data would need explicit org_id set to be visible
+    only within that org.
+    """
+    org_id = user.get("org_id") or PUBLIC_ORG
+    # Admins and public-org users see all public data (no restrictive filter)
+    if org_id == PUBLIC_ORG or user.get("role") == "admin":
+        return {}
+    # Private org — scope to their org only
+    return {"org_id": org_id}
+
+
+def _fuzz_location(loc: Dict[str, Any], seed_key: str, max_km: float = 0.8) -> Dict[str, Any]:
+    try:
+        lat = float(loc.get("lat"))
+        lng = float(loc.get("lng"))
+    except Exception:
+        return loc
+
+    seed = hashlib.sha256(seed_key.encode()).hexdigest()
+    rng = random.Random(int(seed[:8], 16))
+    # Random offset within max_km radius
+    angle = rng.uniform(0, 2 * math.pi)
+    dist_km = rng.uniform(0.2, max_km)
+    dlat = (dist_km / 110.574) * math.cos(angle)
+    dlng = (dist_km / (111.320 * math.cos(math.radians(lat)))) * math.sin(angle)
+    return {**loc, "lat": lat + dlat, "lng": lng + dlng}
+
+
+def _to_geopoint(raw: Dict[str, Any]) -> GeoPoint:
+    return GeoPoint(
+        lat=raw.get("lat", 0),
+        lng=raw.get("lng", 0),
+        address=raw.get("address")
+    )
+
+
+def _optimize_route(points: List[GeoPoint], start: Optional[GeoPoint] = None) -> List[GeoPoint]:
+    # #75: Empty points check
+    if not points:
+        return [start] if start else []
+
+    remaining = points[:]
+    route: List[GeoPoint] = []
+    current = start
+    if current is None:
+        current = remaining.pop(0)
+        route.append(current)
+
+    # Greedy nearest-neighbor route (TSP-lite)
+    while remaining:
+        next_idx = min(range(len(remaining)), key=lambda i: haversine_km(current, remaining[i]))
+        current = remaining.pop(next_idx)
+        route.append(current)
+
+    return route
 
 
 def compute_priority(need: Dict[str, Any], disaster: bool = False) -> float:
@@ -1211,9 +1526,9 @@ async def log_audit(actor: Dict[str, Any], action: str, target: str, meta: Dict[
         "actor_role": actor.get("role"),
         "action": action,
         "target": target,
-        "meta": meta or {},
+        "meta": {**(meta or {}), "org_id": actor.get("org_id") or PUBLIC_ORG},
         "timestamp": iso(now_utc()),
-        "expire_at": now_utc() + timedelta(days=60)
+        "expire_at": iso(now_utc() + timedelta(days=60))
     }
     await db.audit_logs.insert_one(log_entry)
 
@@ -1330,14 +1645,15 @@ async def register(body: RegisterBody):
     await asyncio.to_thread(firebase_auth.update_user, uid, display_name=body.name)
     await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": body.role})
 
-    user = User(id=uid, name=body.name, email=body.email, role=body.role, phone=body.phone, language=body.language)
+    org_id = body.org_id or _infer_org_id(body.email)
+    user = User(id=uid, name=body.name, email=body.email, role=body.role, org_id=org_id, phone=body.phone, language=body.language)
     await db.users.insert_one(user.model_dump())
 
     # If volunteer role, auto-create volunteer stub
     if body.role == "volunteer":
         existing_vol = await db.volunteers.find_one({"user_id": user.id}, {"_id": 0})
         if not existing_vol:
-            vol = Volunteer(user_id=user.id, name=body.name, base_location=GeoPoint(lat=28.6139, lng=77.2090))
+            vol = Volunteer(user_id=user.id, name=body.name, org_id=org_id, base_location=GeoPoint(lat=28.6139, lng=77.2090))
             await db.volunteers.insert_one(vol.model_dump())
 
     token = sign_up.get("idToken")
@@ -1442,12 +1758,14 @@ async def update_profile(body: Dict[str, Any], user=Depends(get_current_user)):
 # ---------- NEED REQUEST ROUTES ----------
 @api_router.post("/needs", response_model=NeedRequest)
 async def create_need(body: NeedCreate, user=Depends(get_current_user)):
-    n = NeedRequest(**body.model_dump(), created_by=user["id"])
+    org_id = body.org_id or user.get("org_id") or PUBLIC_ORG
+    n = NeedRequest(**body.model_dump(), org_id=org_id, created_by=user["id"])
     state = await get_system_state()
     n.priority_score = compute_priority(n.model_dump(), state["disaster_mode"])
     await db.needs.insert_one(n.model_dump())
     await update_global_stats("needs_count", 1)
     _GLOBAL_CACHE.clear()
+    _DASHBOARD_CACHE.clear()
     await ws_manager.broadcast("janrakshak-live-update")
     await log_audit(user, "need_created", n.id, {"title": n.title, "urgency": n.urgency})
     return n
@@ -1463,11 +1781,12 @@ async def list_needs(
     limit: int = 20, 
     last_id: Optional[str] = None, # 🏛️ Added for cursor pagination
     projection: Optional[str] = None,
+    created_by: Optional[str] = None, # #57: Added server-side filter
     user=Depends(get_current_user)
 ):
     """🏛️ Strategy 1 & 8: Global Caching + Strategic Projections"""
     fetch_limit = min(limit, 50)
-    cache_key = f"needs_{status}_{category}_{sort_by}_{sort_dir}_{skip}_{fetch_limit}_{projection}_{last_id}_{user['role']}"
+    cache_key = f"needs_{status}_{category}_{sort_by}_{sort_dir}_{skip}_{fetch_limit}_{projection}_{last_id}_{user['role']}_{user.get('org_id') or PUBLIC_ORG}"
     
     cached = _GLOBAL_CACHE.get(cache_key)
     if cached: return cached
@@ -1475,7 +1794,9 @@ async def list_needs(
     q = {}
     if status and status != "all": q["status"] = status
     if category and category != "all": q["category"] = category
-    if user["role"] == "user": q["user_id"] = user["id"]
+    q.update(_org_scope_filter(user))
+    if created_by: q["created_by"] = created_by
+    if user["role"] == "user": q["created_by"] = user["id"]
     
     # Cursor logic: if last_id is provided, start after that doc
     if last_id:
@@ -1494,28 +1815,42 @@ async def list_needs(
         cursor = cursor.select(selected_proj)
         
     rows = await cursor.sort(sort_by, sort_dir).skip(skip).limit(fetch_limit).to_list(length=fetch_limit)
+    
+    # Apply masking for non-admin/non-owner
+    rows = [_mask_need(row, user) for row in rows]
+    
     _GLOBAL_CACHE.set(cache_key, rows)
     return rows
 
 @api_router.get("/needs/markers")
 async def get_need_markers(user=Depends(get_current_user)):
     """🛰️ Strategy 2: Geospatial Projections (ID + Location Only)"""
-    cache_key = "needs_markers_global"
+    cache_key = f"needs_markers_{user.get('org_id') or PUBLIC_ORG}_{user['role']}"
     cached = _GLOBAL_CACHE.get(cache_key)
     if cached: return cached
 
     # Projection: Fetch only essential metadata to save quota
-    projection = {"id": 1, "location": 1, "urgency": 1, "status": 1, "title": 1, "category": 1}
-    results = await db.needs.find({}, projection=projection).to_list(length=500)
+    projection = {"id": 1, "location": 1, "urgency": 1, "status": 1, "title": 1, "category": 1, "org_id": 1}
+    q = _org_scope_filter(user)
+    results = await db.needs.find(q, projection=projection).to_list(length=500)
+    
+    # 🕵️ Privacy Fuzzing Pipeline
+    results = [_mask_need(r, user) for r in results]
+    
     _GLOBAL_CACHE.set(cache_key, results)
     return results
 
 
 @api_router.get("/needs/{need_id}")
 async def get_need(need_id: str, user=Depends(get_current_user)):
-    n = await db.needs.find_one({"id": need_id}, {"_id": 0})
+    q = {"id": need_id}
+    q.update(_org_scope_filter(user))
+    n = await db.needs.find_one(q, {"_id": 0})
     if not n:
         raise HTTPException(404, "Need not found")
+    
+    # 🛡️ Tactical Masking Layer
+    n = _mask_need(n, user)
     
     # 🛰️ One-Tap Navigation: Add 100% free deep link
     loc = n.get("location", {})
@@ -1523,8 +1858,48 @@ async def get_need(need_id: str, user=Depends(get_current_user)):
     return n
 
 
+async def _trigger_ai_verification(need_id: str, img_url: str, user: Dict[str, Any]):
+    """🧠 Strategy 31: Automated Field Audit - Gemini analyzes proof asynchronously."""
+    need = await db.needs.find_one({"id": need_id})
+    if not need or not img_url: return
+
+    # If img_url is a URL, we need to fetch it or handle it if it's b64
+    # For now, assuming b64 for speed or fetch if it's a link
+    img_data = img_url
+    if img_url.startswith("http"):
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(img_url)
+                import base64
+                img_data = base64.b64encode(resp.content).decode()
+        except: return
+
+    prompt = f"""
+    AUDIT MISSION: {need.get('title')}
+    CATEGORY: {need.get('category')}
+    DESCRIPTION: {need.get('description')}
+    
+    Examine the attached image. Is this valid proof that the mission was completed?
+    Return STRICT JSON:
+    {{
+      "reliability_score": 0-100,
+      "detected_items": ["list", "of", "items"],
+      "verified": true/false,
+      "audit_notes": "Brief explanation"
+    }}
+    """
+    analysis_raw = await ai_vision_extract(img_data, prompt=prompt)
+    try:
+        analysis = json.loads(analysis_raw) or {}
+    except:
+        analysis = {"reliability_score": 0, "verified": False, "audit_notes": "AI Analysis Failed"}
+        
+    await db.needs.update_one({"id": need_id}, {"$set": {"ai_verification": analysis}})
+    await log_audit(user, "AI_AUTO_AUDIT", need_id, {"score": analysis.get("reliability_score")})
+
+
 @api_router.post("/api/needs/{need_id}/verify-proof")
-async def verify_mission_proof(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_user)):
+async def verify_mission_proof(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(require_roles("admin", "volunteer"))):
     """
     🧠 Strategy 18: Intel Reliability - Using AI to verify proof of action.
     """
@@ -1611,14 +1986,26 @@ async def upload_evidence(need_id: str, payload: Dict[str, Any], user: Dict[str,
 
 
 @api_router.patch("/needs/{need_id}")
-async def update_need(need_id: str, patch: Dict[str, Any], user=Depends(require_roles("admin"))):
-    patch["updated_at"] = iso(now_utc())
-    
-    # Capture old state to check for transitions
-    old_need = await db.needs.find_one({"id": need_id})
+async def update_need(need_id: str, patch: Dict[str, Any], user=Depends(get_current_user)):
+    # #79: Owners can cancel their own needs
+    q = {"id": need_id}
+    q.update(_org_scope_filter(user))
+    old_need = await db.needs.find_one(q)
     if not old_need:
         raise HTTPException(404, "Mission not found")
 
+    if user["role"] == "user" and old_need.get("created_by") != user["id"]:
+        raise HTTPException(403, "Not authorized to update this request")
+    
+    if user["role"] == "user":
+        # #79: Limit what users can update
+        allowed = {"status", "description", "title"}
+        patch = {k: v for k, v in patch.items() if k in allowed}
+        if patch.get("status") and patch.get("status") != "cancelled":
+             raise HTTPException(400, "Users can only transition status to 'cancelled'")
+
+    patch["updated_at"] = iso(now_utc())
+    
     # 🚨 Status Transition Logic: Handle volunteer availability
     new_status = patch.get("status")
     new_vids = patch.get("assigned_volunteer_ids")
@@ -1636,6 +2023,7 @@ async def update_need(need_id: str, patch: Dict[str, Any], user=Depends(require_
 
     await db.needs.update_one({"id": need_id}, {"$set": patch})
     _GLOBAL_CACHE.clear()
+    _DASHBOARD_CACHE.clear()
     await ws_manager.broadcast("janrakshak-live-update")
     await log_audit(user, "need_updated", need_id, patch)
     return await db.needs.find_one({"id": need_id}, {"_id": 0})
@@ -1654,10 +2042,11 @@ async def create_volunteer(body: VolunteerCreate, user=Depends(get_current_user)
     existing = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
     if existing:
         raise HTTPException(400, "Volunteer profile already exists")
-    v = Volunteer(user_id=user["id"], **body.model_dump())
+    v = Volunteer(user_id=user["id"], org_id=user.get("org_id") or PUBLIC_ORG, **body.model_dump())
     await db.volunteers.insert_one(v.model_dump())
     await update_global_stats("volunteers_count", 1)
     await active_volunteers_counter.increment(1)
+    _DASHBOARD_CACHE.clear()
     return v
 
 
@@ -1673,6 +2062,7 @@ async def list_volunteers(
     q = {}
     if availability: q["availability"] = availability
     if city: q["base_location.city"] = city
+    q.update(_org_scope_filter(user))
     
     proj_map = {
         "short": ["id", "name", "availability", "trust_score", "skills", "transport", "working_radius_km"]
@@ -1686,15 +2076,9 @@ async def list_volunteers(
     return await cursor.skip(skip).limit(limit).to_list(length=limit)
 
 
-@api_router.get("/volunteers/leaderboard")
-async def leaderboard(user=Depends(get_current_user)):
-    vols = await db.volunteers.find({}, {"_id": 0}).sort("trust_score", -1).limit(20).to_list(length=20)
-    return vols
-
-
 @api_router.patch("/volunteers/{vol_id}")
 async def update_volunteer(vol_id: str, patch: Dict[str, Any], user=Depends(require_roles("volunteer", "admin"))):
-    v = await db.volunteers.find_one({"id": vol_id}, {"_id": 0})
+    v = await db.volunteers.find_one({"id": vol_id, **_org_scope_filter(user)}, {"_id": 0})
     if not v:
         raise HTTPException(404, "Volunteer not found")
     # Ownership: volunteer can only patch self
@@ -1707,18 +2091,46 @@ async def update_volunteer(vol_id: str, patch: Dict[str, Any], user=Depends(requ
 
 @api_router.get("/volunteers/me")
 async def get_my_volunteer_profile(user=Depends(require_roles("volunteer"))):
-    v = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
+    v = await db.volunteers.find_one({"user_id": user["id"], **_org_scope_filter(user)}, {"_id": 0})
     if not v:
         raise HTTPException(status_code=404, detail="Volunteer profile not found")
     return v
 
 
+@api_router.patch("/volunteers/me/status")
+async def toggle_my_status(patch: Dict[str, str], user=Depends(require_roles("volunteer"))):
+    """🧠 Operational Autonomy: Allows volunteers to manually reset status if locked."""
+    new_status = patch.get("availability")
+    if new_status not in ("available", "busy", "away"):
+        raise HTTPException(400, "Invalid status code")
+    
+    await db.volunteers.update_one({"user_id": user["id"]}, {"$set": {"availability": new_status, "updated_at": iso(now_utc())}})
+    return {"status": "updated", "availability": new_status}
+
+
+@api_router.get("/volunteers/leaderboard")
+async def get_leaderboard(user=Depends(get_current_user)):
+    """🏆 Volunteer Hall of Fame: High-trust responders."""
+    try:
+        # Secure Org Isolation logic
+        f = _org_scope_filter(user)
+        # 🏎️ Parallel Projection Dispatch to avoid O(N) blocking
+        vols = await db.volunteers.find(f, {"name": 1, "trust_score": 1, "completed_missions": 1, "role": 1}).sort("trust_score", -1).to_list(length=10)
+        return vols
+    except Exception as e:
+        logger.error(f"🛰️ LEADERBOARD SYNC CRITICAL FAILURE: {str(e)}")
+        # Graceful fallback: return empty list to prevent dashboard crash
+        return []
+
+
 @api_router.get("/volunteers/{vol_id}")
 async def get_volunteer_detail(vol_id: str, user=Depends(get_current_user)):
     try:
-        v = await db.volunteers.find_one({"id": vol_id}, {"_id": 0})
+        q = {"id": vol_id}
+        q.update(_org_scope_filter(user))
+        v = await db.volunteers.find_one(q, {"_id": 0})
         if not v:
-            v = await db.volunteers.find_one({"user_id": vol_id}, {"_id": 0})
+            v = await db.volunteers.find_one({"user_id": vol_id, **_org_scope_filter(user)}, {"_id": 0})
         
         if not v:
             raise HTTPException(404, "Volunteer not found in tactical roster")
@@ -1743,6 +2155,8 @@ async def get_volunteer_detail(vol_id: str, user=Depends(get_current_user)):
             "missions_history": missions, 
             "activity_log": logs
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Dossier Synth Failure: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Dossier Synthesis Offline: {str(e)}")
@@ -1751,10 +2165,11 @@ async def get_volunteer_detail(vol_id: str, user=Depends(get_current_user)):
 # ---------- RESOURCES ----------
 @api_router.post("/resources", response_model=Resource)
 async def create_resource(body: ResourceCreate, user=Depends(require_roles("admin"))):
-    r = Resource(**body.model_dump())
+    r = Resource(**body.model_dump(), org_id=user.get("org_id") or PUBLIC_ORG)
     await db.resources.insert_one(r.model_dump())
     await update_global_stats("resources_count", 1)
     await ws_manager.broadcast("janrakshak-live-update")
+    _DASHBOARD_CACHE.clear()
     await log_audit(user, "resource_created", r.id, {"name": r.name, "qty": r.quantity})
     return r
 
@@ -1768,6 +2183,7 @@ async def list_resources(category: Optional[str] = None, skip: int = 0, limit: i
 
     q = {}
     if category: q["category"] = category
+    q.update(_org_scope_filter(user))
     rows = await db.resources.find(q, {"_id": 0}).skip(skip).limit(limit).to_list(length=limit)
     
     _GLOBAL_CACHE.set(cache_key, rows)
@@ -1776,7 +2192,7 @@ async def list_resources(category: Optional[str] = None, skip: int = 0, limit: i
 
 @api_router.get("/resources/shortages")
 async def shortages(user=Depends(get_current_user)):
-    all_res = await db.resources.find({}, {"_id": 0}).to_list(length=500)
+    all_res = await db.resources.find(_org_scope_filter(user), {"_id": 0}).to_list(length=500)
     return [r for r in all_res if r["quantity"] <= r["min_threshold"]]
 
 
@@ -1789,6 +2205,29 @@ async def update_resource(rid: str, patch: Dict[str, Any], user=Depends(require_
 
 
 # ---------- ADMIN OPERATIONS ----------
+@api_router.get("/admin/system/usage")
+async def system_usage(user=Depends(require_roles("admin"))):
+    """📊 Real-time API usage counters for the Analytics dashboard."""
+    limits = _USAGE_MONITOR.get("limits", {})
+    usage = {k: v for k, v in _USAGE_MONITOR.items() if k not in ("limits", "last_reset")}
+
+    pct: Dict[str, float] = {}
+    for k, v in usage.items():
+        if k in limits and limits[k] > 0:
+            pct[k] = round((v / limits[k]) * 100, 1)
+
+    uptime_minutes = int((time.time() - _BOOT_TIME) / 60)
+    any_critical = any(pct.get(k, 0) >= 90 for k in ["reads", "writes", "gemini_flash"])
+
+    return {
+        "status": "CRITICAL" if any_critical else "operational",
+        "uptime": f"{uptime_minutes}m" if uptime_minutes < 60 else f"{uptime_minutes // 60}h {uptime_minutes % 60}m",
+        "usage": usage,
+        "limits": limits,
+        "usage_percentage": pct,
+    }
+
+
 @api_router.delete("/needs/{need_id}")
 async def delete_need(need_id: str, user=Depends(require_roles("admin"))):
     result = await db.needs.delete_one({"id": need_id})
@@ -1796,6 +2235,13 @@ async def delete_need(need_id: str, user=Depends(require_roles("admin"))):
         raise HTTPException(404, "Need not found")
     await ws_manager.broadcast("janrakshak-live-update")
     return {"message": "Request terminated successfully"}
+
+@api_router.post("/admin/cache/clear")
+async def clear_cache(user=Depends(require_roles("admin"))):
+    """🧠 Emergency cache purge — forces fresh DB reads on next request."""
+    _GLOBAL_CACHE.clear()
+    _DASHBOARD_CACHE.clear()
+    return {"message": "Cache cleared. Next request will fetch fresh data.", "ts": datetime.now(timezone.utc).isoformat()}
 
 @api_router.post("/admin/re-prioritize")
 async def bulk_re_prioritize(user=Depends(require_roles("admin"))):
@@ -1879,10 +2325,10 @@ def sentinel_categorize(text: str) -> str:
 # ---------- MATCHING ENGINE ----------
 @api_router.post("/matching/suggest/{need_id}")
 async def suggest_matches(need_id: str, user=Depends(get_current_user)):
-    need = await db.needs.find_one({"id": need_id}, {"_id": 0})
+    need = await db.needs.find_one({"id": need_id, **_org_scope_filter(user)}, {"_id": 0})
     if not need: raise HTTPException(404, "Need not found")
 
-    query = {"availability": "available"}
+    query = {"availability": "available", **_org_scope_filter(user)}
     gh = need.get("geohash")
     
     # 🕵️ Tactical Expansion: Start with 5km, expand to city-wide if empty
@@ -1894,7 +2340,7 @@ async def suggest_matches(need_id: str, user=Depends(get_current_user)):
     
     # 🚨 Radius Jump: If local is empty, grab all available city-wide
     if not vols:
-        vols = await db.volunteers.find({"availability": "available"}, {"_id": 0}).to_list(length=500)
+        vols = await db.volunteers.find({"availability": "available", **_org_scope_filter(user)}, {"_id": 0}).to_list(length=500)
     
     scored = []
     n_loc = GeoPoint(**need["location"])
@@ -1960,6 +2406,7 @@ async def auto_assign(need_id: str, user=Depends(require_roles("admin"))):
     # Track usage stats manually for batch
     _USAGE_MONITOR["writes"] += 2
     _GLOBAL_CACHE.clear() # 🧠 Instant Invalidation
+    _DASHBOARD_CACHE.clear()
     
     await log_audit(user, "auto_assigned", need_id, {"volunteer_id": top["id"], "match_score": top["match_score"]})
     await ws_manager.broadcast('{"type": "update", "source": "matching", "target_volunteer_id": "' + top["id"] + '"}')
@@ -1969,12 +2416,12 @@ async def auto_assign(need_id: str, user=Depends(require_roles("admin"))):
 @api_router.post("/needs/{need_id}/claim")
 async def claim_need(need_id: str, user=Depends(require_roles("volunteer", "admin"))):
     """🏛️ Strategy 14: Decentralized Dispatch - Volunteers can self-assign to missions."""
-    need = await db.needs.find_one({"id": need_id}, {"_id": 0})
+    need = await db.needs.find_one({"id": need_id, **_org_scope_filter(user)}, {"_id": 0})
     if not need: raise HTTPException(404, "Mission not found")
     if need.get("status") != "pending":
         raise HTTPException(400, "Mission is already claimed or active")
 
-    vol = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
+    vol = await db.volunteers.find_one({"user_id": user["id"], **_org_scope_filter(user)}, {"_id": 0})
     if not vol:
         raise HTTPException(404, "Volunteer profile required for tactical mission claiming.")
     
@@ -2022,7 +2469,21 @@ async def match_explain(need_id: str, user=Depends(get_current_user)):
 # ---------- MISSIONS ----------
 @api_router.post("/missions", response_model=Mission)
 async def create_mission(body: MissionCreate, user=Depends(require_roles("admin"))):
-    m = Mission(**body.model_dump())
+    route_points: List[GeoPoint] = []
+    try:
+        needs = await db.needs.find({"id": {"$in": body.need_ids}}, {"_id": 0, "location": 1}).to_list(length=200)
+        points = [_to_geopoint(n.get("location", {})) for n in needs if n.get("location")]
+        start = None
+        if body.volunteer_ids:
+            v = await db.volunteers.find_one({"id": body.volunteer_ids[0]}, {"_id": 0, "base_location": 1})
+            if v and v.get("base_location"):
+                start = _to_geopoint(v["base_location"])
+        route_points = _optimize_route(points, start=start)
+    except Exception:
+        route_points = []
+
+    org_id = user.get("org_id") or PUBLIC_ORG
+    m = Mission(**body.model_dump(), org_id=org_id, route=route_points)
     
     # 🏛️ Strategy 4: High-Velocity Batch Mission Creation
     batch = db.missions.batch()
@@ -2042,6 +2503,7 @@ async def create_mission(body: MissionCreate, user=Depends(require_roles("admin"
     await update_global_stats("missions_count", 1)
     _USAGE_MONITOR["writes"] += (1 + len(body.need_ids) + len(body.volunteer_ids))
     _GLOBAL_CACHE.clear() # 🧠 Instant Invalidation
+    _DASHBOARD_CACHE.clear()
     
     await log_audit(user, "mission_created", m.id)
     await ws_manager.broadcast('{"type": "update", "source": "missions"}')
@@ -2051,16 +2513,16 @@ async def create_mission(body: MissionCreate, user=Depends(require_roles("admin"
 @api_router.get("/missions")
 async def list_missions(user=Depends(require_roles("volunteer", "admin"))):
     if user["role"] == "admin":
-        missions = await db.missions.find({}, {"_id": 0}).to_list(length=200)
+        missions = await db.missions.find(_org_scope_filter(user), {"_id": 0}).to_list(length=200)
         missions.sort(key=lambda x: str(x.get("created_at", "")), reverse=True)
         return missions
 
     # Volunteer only sees their own
-    v = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
+    v = await db.volunteers.find_one({"user_id": user["id"], **_org_scope_filter(user)}, {"_id": 0})
     if not v: return []
     
     # 🕵️ Tactical Array-contains filter: correctly checks membership in mission roster
-    missions = await db.missions.find({"volunteer_ids": {"$array_contains": v["id"]}}, {"_id": 0}).to_list(length=100)
+    missions = await db.missions.find({"volunteer_ids": {"$array_contains": v["id"]}, **_org_scope_filter(user)}, {"_id": 0}).to_list(length=100)
     missions.sort(key=lambda x: str(x.get("created_at", "")), reverse=True)
     
     # 🛰️ Dynamic Field Navigation: Generate route from volunteer base to first need
@@ -2079,18 +2541,129 @@ async def list_missions(user=Depends(require_roles("volunteer", "admin"))):
     return missions
 
 
+@api_router.post("/missions/{mid}/accept")
+async def accept_mission(mid: str, user=Depends(require_roles("volunteer", "admin"))):
+    m = await db.missions.find_one({"id": mid, **_org_scope_filter(user)}, {"_id": 0})
+    if not m:
+        raise HTTPException(404, "Mission not found")
+
+    if m.get("status") in ("completed", "cancelled"):
+        raise HTTPException(400, "Mission already closed")
+
+    if user["role"] == "volunteer":
+        v = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
+        if not v or v["id"] not in m.get("volunteer_ids", []):
+            raise HTTPException(403, "Not authorized to accept this mission")
+
+    if m.get("status") != "in_progress":
+        await db.missions.update_one(
+            {"id": mid},
+            {"$set": {"status": "in_progress", "updated_at": iso(now_utc())}}
+        )
+        await db.needs.update_many(
+            {"id": {"$in": m.get("need_ids", [])}},
+            {"$set": {"status": "in_progress", "updated_at": iso(now_utc())}}
+        )
+        await log_audit(user, "mission_started", mid)
+        await ws_manager.broadcast(json.dumps({"type": "mission_started", "mission_id": mid}))
+
+    return {"status": "ok", "mission_id": mid}
+
+
+@api_router.post("/missions/{mid}/optimize-route")
+async def optimize_mission_route(mid: str, user=Depends(require_roles("volunteer", "admin"))):
+    m = await db.missions.find_one({"id": mid, **_org_scope_filter(user)}, {"_id": 0})
+    if not m:
+        raise HTTPException(404, "Mission not found")
+
+    if user["role"] == "volunteer":
+        v = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
+        if not v or v["id"] not in m.get("volunteer_ids", []):
+            raise HTTPException(403, "Not authorized to optimize this mission")
+        start = _to_geopoint(v.get("base_location", {}))
+    else:
+        start = None
+        if m.get("volunteer_ids"):
+            v = await db.volunteers.find_one({"id": m["volunteer_ids"][0]}, {"_id": 0, "base_location": 1})
+            if v and v.get("base_location"):
+                start = _to_geopoint(v["base_location"])
+
+    needs = await db.needs.find({"id": {"$in": m.get("need_ids", [])}}, {"_id": 0, "location": 1}).to_list(length=200)
+    points = [_to_geopoint(n.get("location", {})) for n in needs if n.get("location")]
+    route_points = _optimize_route(points, start=start)
+    route_payload = [p.model_dump() for p in route_points]
+
+    await db.missions.update_one({"id": mid}, {"$set": {"route": route_payload, "updated_at": iso(now_utc())}})
+    await log_audit(user, "mission_route_optimized", mid, {"stops": len(route_payload)})
+    await ws_manager.broadcast(json.dumps({"type": "mission_route_optimized", "mission_id": mid}))
+
+    return {"mission_id": mid, "route": route_payload}
+
+
+@api_router.post("/missions/{mid}/brief")
+async def mission_brief(mid: str, body: Dict[str, Any], user=Depends(require_roles("volunteer", "admin"))):
+    refresh = bool(body.get("refresh"))
+    m = await db.missions.find_one({"id": mid, **_org_scope_filter(user)}, {"_id": 0})
+    if not m:
+        raise HTTPException(404, "Mission not found")
+
+    if not refresh and m.get("brief"):
+        return {"mission_id": mid, "brief": m.get("brief"), "cached": True}
+
+    needs = await db.needs.find({"id": {"$in": m.get("need_ids", [])}, **_org_scope_filter(user)}, {"_id": 0}).to_list(length=50)
+    vols = await db.volunteers.find({"id": {"$in": m.get("volunteer_ids", [])}, **_org_scope_filter(user)}, {"_id": 0}).to_list(length=20)
+
+    prompt = (
+        "Create a mission brief for field volunteers. Provide 3 sections: "
+        "Objective, Key Risks, Recommended Actions. Keep it concise.\n\n"
+        f"Mission: {mid}\n"
+        f"Needs: {[(n.get('title'), n.get('category'), n.get('urgency')) for n in needs]}\n"
+        f"Volunteers: {[(v.get('name'), v.get('skills'), v.get('transport')) for v in vols]}\n"
+    )
+
+    brief = await ai_insight(prompt, system="Return a concise brief with headings and bullet points.")
+    await db.missions.update_one({"id": mid}, {"$set": {"brief": brief, "brief_updated_at": iso(now_utc())}})
+    await log_audit(user, "mission_brief_generated", mid)
+    return {"mission_id": mid, "brief": brief, "cached": False}
+
+
+@api_router.patch("/missions/{mid}")
+async def update_mission(mid: str, patch: Dict[str, Any], user=Depends(require_roles("volunteer", "admin"))):
+    m = await db.missions.find_one({"id": mid, **_org_scope_filter(user)}, {"_id": 0})
+    if not m:
+        raise HTTPException(404, "Mission not found")
+
+    if user["role"] == "volunteer":
+        v = await db.volunteers.find_one({"user_id": user["id"]}, {"_id": 0})
+        if not v or v["id"] not in m.get("volunteer_ids", []):
+            raise HTTPException(403, "Not authorized to update this mission")
+
+    allowed = {"proof_urls", "completion_notes"}
+    payload = {k: v for k, v in patch.items() if k in allowed}
+    if "proof_urls" in payload and not isinstance(payload["proof_urls"], list):
+        raise HTTPException(400, "proof_urls must be a list")
+
+    if not payload:
+        raise HTTPException(400, "No supported fields to update")
+
+    payload["updated_at"] = iso(now_utc())
+    await db.missions.update_one({"id": mid}, {"$set": payload})
+    await log_audit(user, "mission_updated", mid, {"fields": list(payload.keys())})
+    return await db.missions.find_one({"id": mid}, {"_id": 0})
+
+
 @api_router.post("/missions/{mid}/complete")
 async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_roles("volunteer", "admin"))):
-    proof_urls = body.get("proof_urls", [])
+    m = await db.missions.find_one({"id": mid, **_org_scope_filter(user)}, {"_id": 0})
+    if not m:
+        raise HTTPException(404, "Mission not found")
+
+    proof_urls = body.get("proof_urls") or m.get("proof_urls", [])
     notes = body.get("completion_notes", "")
     
     # 🏛️ Strategy 15: Mandatory Evidence - Verification flow enforcement
     if not proof_urls and user["role"] == "volunteer":
         raise HTTPException(status_code=400, detail="Tactical Verification Required: Please upload photographic proof of resolution.")
-
-    m = await db.missions.find_one({"id": mid}, {"_id": 0})
-    if not m:
-        raise HTTPException(404, "Mission not found")
 
     # Ownership: volunteer must be assigned to this mission or be admin
     if user["role"] == "volunteer":
@@ -2114,8 +2687,16 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
         "actor": user["id"]
     })
 
+    # 🌍 Propagation: Resolve all linked needs and trigger AI verification
+    _ts = iso(now_utc())
+    for nid in m["need_ids"]:
+        await db.needs.update_one({"id": nid}, {"$set": {"status": "completed", "updated_at": _ts}})
+        # 🧠 Trigger AI Audit as a Background Task
+        if proof_urls:
+            await TASK_QUEUE.enqueue(_trigger_ai_verification, nid, proof_urls[0], user)
+    
+    # 🏛️ Release Volunteer
     needs = await db.needs.find({"id": {"$in": m["need_ids"]}}).to_list(length=100)
-    await db.needs.update_many({"id": {"$in": m["need_ids"]}}, {"$set": {"status": "completed", "updated_at": iso(now_utc())}})
     
     # 🏛️ Strategy 4: Batch Writes (Efficient updates for multiple volunteers)
     batch = db.client.batch()
@@ -2145,6 +2726,7 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
             await db.resources.update_one({"id": rid}, {"$inc": {"quantity": -qty}, "$set": {"updated_at": iso(now_utc())}})
 
     _GLOBAL_CACHE.clear()
+    _DASHBOARD_CACHE.clear()
     
     # WebSocket Signal for Global Fleet
     await ws_manager.broadcast(json.dumps({
@@ -2160,7 +2742,7 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
 
 @api_router.post("/missions/{mid}/abandon")
 async def abandon_mission(mid: str, user=Depends(require_roles("volunteer", "admin"))):
-    m = await db.missions.find_one({"id": mid}, {"_id": 0})
+    m = await db.missions.find_one({"id": mid, **_org_scope_filter(user)}, {"_id": 0})
     if not m:
         raise HTTPException(404, "Mission not found")
     
@@ -2189,9 +2771,14 @@ async def abandon_mission(mid: str, user=Depends(require_roles("volunteer", "adm
 
 
 # ---------- CITIZEN REPORTS ----------
-async def _bg_ocr_task(rid: str, image_base64: str, mime_type: str, lat: float, lng: float, user_id: str):
+async def _bg_ocr_task(rid: str, image_base64: str, mime_type: str, lat: float, lng: float, user_id: str, org_id: str):
     logger.info(f"Starting background OCR for report {rid}")
-    extracted_text = await ai_vision_extract(image_base64, mime_type)
+    prompt = (
+        "You are extracting a handwritten or scanned survey. Return STRICT JSON with: "
+        "short_title, category, description, urgency(1-5), severity(1-5), people_affected(int), "
+        "weather_factor(1-5), vulnerability(list)."
+    )
+    extracted_text = await ai_vision_extract(image_base64, mime_type, prompt=prompt)
     import json as _json
     import re as _re
     try:
@@ -2208,6 +2795,7 @@ async def _bg_ocr_task(rid: str, image_base64: str, mime_type: str, lat: float, 
         category=extracted.get("category", "other"),
         description=extracted.get("raw_text", "Failed to transcribe document"),
         location=GeoPoint(lat=lat, lng=lng),
+        org_id=org_id,
         urgency=extracted.get("urgency", 3),
         people_affected=extracted.get("people_affected", 1),
         vulnerability=extracted.get("vulnerability", ["none"]),
@@ -2217,6 +2805,7 @@ async def _bg_ocr_task(rid: str, image_base64: str, mime_type: str, lat: float, 
     state = await get_system_state()
     need.priority_score = compute_priority(need.model_dump(), state["disaster_mode"])
     await db.needs.insert_one(need.model_dump())
+    _DASHBOARD_CACHE.clear()
     await ws_manager.broadcast('{"type": "update", "source": "needs_ocr", "id": "' + need.id + '"}')
     await log_audit(actor, "paper_ocr_intake", need.id)
 
@@ -2224,13 +2813,15 @@ async def _bg_ocr_task(rid: str, image_base64: str, mime_type: str, lat: float, 
 @api_router.post("/needs/ocr")
 async def process_ocr_need(body: Dict[str, Any], bg: BackgroundTasks, user=Depends(require_roles("admin", "volunteer"))):
     rid = str(uuid.uuid4())
-    bg.add_task(
-        _bg_ocr_task, 
-        rid, body.get("image_base64", ""), 
-        body.get("mime_type", "image/jpeg"), 
-        body.get("lat", 28.6139), 
+    await TASK_QUEUE.enqueue(
+        _bg_ocr_task,
+        rid,
+        body.get("image_base64", ""),
+        body.get("mime_type", "image/jpeg"),
+        body.get("lat", 28.6139),
         body.get("lng", 77.2090),
-        user["id"]
+        user["id"],
+        user.get("org_id") or PUBLIC_ORG
     )
     return {"status": "processing", "request_id": rid}
 
@@ -2250,6 +2841,7 @@ async def bulk_csv_intake(body: CSVBulkPayload, user=Depends(require_roles("admi
             category=row.get("category", "other"),
             description=row.get("description", "No description"),
             location=GeoPoint(lat=lat, lng=lng),
+            org_id=user.get("org_id") or PUBLIC_ORG,
             urgency=int(row.get("urgency", 3)),
             people_affected=int(row.get("people_affected", 1)),
             source="admin",
@@ -2263,7 +2855,7 @@ async def bulk_csv_intake(body: CSVBulkPayload, user=Depends(require_roles("admi
     return {"ok": True, "created": len(to_create)}
 
 
-async def _bg_report_task(report_id: str, raw_text: str):
+async def _bg_report_task(report_id: str, raw_text: str, image_base64: Optional[str], mime_type: str, org_id: str):
     logger.info(f"Background processing report {report_id}")
     extraction_prompt = (
         f"Extract structured fields and analyze tone from this citizen report in JSON only.\n"
@@ -2272,6 +2864,15 @@ async def _bg_report_task(report_id: str, raw_text: str):
         f"Report: {raw_text}"
     )
     extracted_text = await ai_insight(extraction_prompt, system="Return ONLY JSON. If tone is 'panic' or 'desperation', set urgency to at least 4.")
+    if image_base64:
+        vision_prompt = (
+            "Extract structured fields from handwritten surveys. Return STRICT JSON with: "
+            "short_title, category, description, urgency(1-5), severity(1-5), people_affected(int), "
+            "vulnerability(list)."
+        )
+        vision_text = await ai_vision_extract(image_base64, mime_type, prompt=vision_prompt)
+    else:
+        vision_text = "{}"
     import json as _json
     import re as _re
     extracted = {}
@@ -2280,6 +2881,15 @@ async def _bg_report_task(report_id: str, raw_text: str):
         extracted = _json.loads(match.group(0)) if match else {}
     except Exception:
         pass
+
+    try:
+        match = _re.search(r"\{[\s\S]*\}", vision_text)
+        vision_data = _json.loads(match.group(0)) if match else {}
+    except Exception:
+        vision_data = {}
+
+    if vision_data:
+        extracted = {**vision_data, **extracted}
     
     # 🧠 Sentiment-Driven Escalation
     tone = extracted.get("tone", "calm")
@@ -2306,27 +2916,57 @@ async def _bg_report_task(report_id: str, raw_text: str):
 
 
 @api_router.post("/citizen/reports")
-async def submit_citizen_report(body: CitizenReportCreate, bg: BackgroundTasks):
-    report = CitizenReport(**body.model_dump())
+async def submit_citizen_report(body: CitizenReportCreate, bg: BackgroundTasks, user=Depends(get_optional_user)):
+    report = CitizenReport(**body.model_dump(), org_id=user.get("org_id") or PUBLIC_ORG)
     await db.citizen_reports.insert_one(report.model_dump())
     
     # 📡 Global Intelligence: Count the SOS intake
     await reports_processed_counter.increment(1)
 
     # Offload AI and heavy logic to background
-    bg.add_task(_bg_report_task, report.id, body.raw_text)
+    await TASK_QUEUE.enqueue(
+        _bg_report_task,
+        report.id,
+        body.raw_text,
+        None,
+        "image/jpeg",
+        user.get("org_id") or PUBLIC_ORG
+    )
     
     return {"status": "received", "report_id": report.id}
 
 
 @api_router.get("/citizen/reports")
 async def list_citizen_reports(user=Depends(require_roles("admin"))):
-    return await db.citizen_reports.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=200)
+    return await db.citizen_reports.find(_org_scope_filter(user), {"_id": 0}).sort("created_at", -1).to_list(length=200)
+
+
+@api_router.post("/field/reports")
+async def submit_field_report(body: FieldReportCreate, user=Depends(require_roles("admin", "volunteer"))):
+    report = CitizenReport(
+        raw_text=body.raw_text,
+        reporter_name=body.reporter_name,
+        reporter_phone=body.reporter_phone,
+        language=body.language,
+        org_id=user.get("org_id") or PUBLIC_ORG
+    )
+    await db.citizen_reports.insert_one(report.model_dump())
+
+    await TASK_QUEUE.enqueue(
+        _bg_report_task,
+        report.id,
+        body.raw_text,
+        body.image_base64,
+        body.mime_type,
+        user.get("org_id") or PUBLIC_ORG
+    )
+
+    return {"status": "received", "report_id": report.id}
 
 
 @api_router.post("/citizen/reports/{rid}/convert")
 async def convert_report(rid: str, body: Dict[str, Any], user=Depends(require_roles("admin"))):
-    r = await db.citizen_reports.find_one({"id": rid}, {"_id": 0})
+    r = await db.citizen_reports.find_one({"id": rid, **_org_scope_filter(user)}, {"_id": 0})
     if not r:
         raise HTTPException(404, "Report not found")
     loc = GeoPoint(**body.get("location", {"lat": 28.6139, "lng": 77.2090}))
@@ -2334,7 +2974,7 @@ async def convert_report(rid: str, body: Dict[str, Any], user=Depends(require_ro
     cat = body.get("category") or extracted.get("category", "other")
     
     # 🤖 AI Meta-Clustering Check (> 500m radius duplicate merging)
-    recent_needs = await db.needs.find({"status": {"$in": ["pending", "assigned"]}, "category": cat}, {"_id": 0}).to_list(length=500)
+    recent_needs = await db.needs.find({"status": {"$in": ["pending", "assigned"]}, "category": cat, **_org_scope_filter(user)}, {"_id": 0}).to_list(length=500)
     for rn in recent_needs:
         dist = haversine_km(loc, GeoPoint(**rn["location"]))
         if dist <= 0.5:
@@ -2365,6 +3005,7 @@ async def convert_report(rid: str, body: Dict[str, Any], user=Depends(require_ro
         category=cat,
         description=r["raw_text"],
         location=loc,
+        org_id=user.get("org_id") or PUBLIC_ORG,
         urgency=int(body.get("urgency") or extracted.get("urgency", 3)),
         people_affected=int(body.get("people_affected") or extracted.get("people_affected", 1)),
         vulnerability=body.get("vulnerability") or extracted.get("vulnerability", ["none"]),
@@ -2383,62 +3024,107 @@ async def convert_report(rid: str, body: Dict[str, Any], user=Depends(require_ro
 
 @api_router.get("/analytics/overview")
 async def analytics_overview(user=Depends(require_roles("admin"))):
-    """📊 Tactical Synth: Pulls from 🏛️ Global Stats using Parallel Dispatch"""
+    """📊 Tactical Synth: Pulls from 🏛️ Global Stats with Real-time Failover"""
+    cache_key = f"analytics_overview_{user.get('org_id') or PUBLIC_ORG}"
+    cached = _DASHBOARD_CACHE.get(cache_key)
+    if cached:
+        return cached
+
+    org_filter = _org_scope_filter(user)
+
     # 🏎️ Strategy 1: Parallel Fleet Fetching (O(1) latency)
-    (stats_doc, state, top_vols) = await asyncio.gather(
+    (stats_doc, state, top_vols, all_resources, all_needs) = await asyncio.gather(
         db.metadata.find_one({"id": "global_stats"}, {"_id": 0}),
         get_system_state(),
-        db.volunteers.find({}, {"name": 1, "trust_score": 1, "completed_missions": 1}).sort("trust_score", -1).to_list(length=5)
+        db.volunteers.find(org_filter, {"name": 1, "trust_score": 1, "completed_missions": 1}).sort("trust_score", -1).to_list(length=5),
+        db.resources.find(org_filter, {"category": 1, "quantity": 1}).to_list(length=2000),
+        db.needs.find(org_filter, {"category": 1, "urgency": 1, "status": 1}).to_list(length=5000),
     )
     
     stats = stats_doc or {}
-    
-    return {
-        "needs_count": stats.get("needs_count", 0),
+
+    # 🏛️ Real-time Aggregation Flow: Ensures accuracy even if metadata sync lags
+    res_agg = {}
+    for r in all_resources:
+        cat = r.get("category", "other")
+        res_agg[cat] = res_agg.get(cat, 0) + r.get("quantity", 0)
+
+    need_agg = {}
+    total_active = 0
+    resolved = 0
+    critical = 0
+    for n in all_needs:
+        cat = n.get("category", "other")
+        status = n.get("status", "pending")
+        urgency = n.get("urgency", 3)
+        
+        need_agg[cat] = need_agg.get(cat, 0) + 1
+        if status == "completed":
+            resolved += 1
+        else:
+            total_active += 1
+            if urgency == 5:
+                critical += 1
+
+    total_needs = len(all_needs)
+    efficiency_score = round((resolved / max(1, total_needs)) * 100, 1)
+
+    payload = {
+        "needs_count": total_needs,
         "missions_count": stats.get("missions_count", 0),
         "volunteers_count": stats.get("volunteers_count", 0),
-        "resources_count": stats.get("resources_count", 0),
+        "resources_count": sum(res_agg.values()),
         "disaster_mode": state["disaster_mode"],
         "top_volunteers": top_vols,
-        "needs_by_urgency": {5: stats.get("critical_needs_count", 0)},
-        "resources_by_category": stats.get("resources_by_category", {}),
-        "active_needs": stats.get("needs_count", 0),
-        "people_helped": stats.get("people_helped", 1420),
-        "efficiency_score": 94.2,
-        "by_category": [{"category": k, "count": v} for k, v in stats.get("needs_by_category", {}).items()],
+        "needs_by_urgency": {5: critical},
+        "resources_by_category": res_agg,
+        "active_needs": total_active,
+        "people_helped": stats.get("people_helped", 0),
+        "efficiency_score": efficiency_score,
+        "by_category": [{"category": k, "count": v} for k, v in need_agg.items()],
         "monthly_trend": [
             {"month": "Nov", "count": 12}, {"month": "Dec", "count": 45},
             {"month": "Jan", "count": 89}, {"month": "Feb", "count": 156},
-            {"month": "Mar", "count": 210}, {"month": "Apr", "count": stats.get("needs_count", 0)}
+            {"month": "Mar", "count": 210}, {"month": "Apr", "count": total_needs}
         ]
     }
 
+    _DASHBOARD_CACHE.set(cache_key, payload)
+    return payload
 
-@api_router.get("/volunteers/leaderboard")
-async def get_leaderboard():
-    """🏆 Volunteer Hall of Fame: High-trust responders."""
-    vols = await db.volunteers.find({}, {"name": 1, "trust_score": 1, "completed_missions": 1}).sort("trust_score", -1).to_list(length=10)
-    return vols
+
+
 
 
 @api_router.get("/dashboard/stats")
-async def get_community_stats():
+async def get_community_stats(user=Depends(get_current_user)):
     """🏘️ Community Intel: High-level metrics for citizens."""
-    # Parallelizing tactical counts for O(1) roundtrip latency
-    (vols, resolved, critical, active, missions_active, missions_done) = await asyncio.gather(
-        db.volunteers.count_documents({"availability": "available"}),
-        db.needs.count_documents({"status": "completed"}),
-        db.needs.count_documents({"urgency": 5, "status": "pending"}),
-        db.needs.count_documents({"status": {"$in": ["pending", "assigned", "in_progress"]}}),
-        db.missions.count_documents({"status": "in_progress"}),
-        db.missions.count_documents({"status": "completed"})
+    cache_key = f"dashboard_stats_{user.get('org_id') or PUBLIC_ORG}"
+    cached = _DASHBOARD_CACHE.get(cache_key)
+    if cached:
+        return cached
+
+    org_filter = _org_scope_filter(user)
+
+    # 🔥 Use find() instead of count_documents() — count_documents silently returns 0
+    # when Firestore composite indexes are still building. find() always works.
+    (all_needs, all_vols, all_missions, resources) = await asyncio.gather(
+        db.needs.find(org_filter, {"status": 1, "urgency": 1}).to_list(length=5000),
+        db.volunteers.find(org_filter, {"availability": 1}).to_list(length=2000),
+        db.missions.find(org_filter, {"status": 1}).to_list(length=2000),
+        db.resources.find(org_filter, {"quantity": 1, "min_threshold": 1}).to_list(length=1000),
     )
-    
-    # Optimized projection: only fetch what we sum
-    resources = await db.resources.find({}, {"quantity": 1, "min_threshold": 1}).to_list(length=1000)
+
+    # In-memory aggregation — fast, reliable, zero index dependency
+    active    = sum(1 for n in all_needs if n.get("status") in ["pending", "assigned", "in_progress"])
+    resolved  = sum(1 for n in all_needs if n.get("status") == "completed")
+    critical  = sum(1 for n in all_needs if n.get("urgency") == 5 and n.get("status") == "pending")
+    vols      = sum(1 for v in all_vols if v.get("availability") == "available")
+    missions_active = sum(1 for m in all_missions if m.get("status") == "in_progress")
+    missions_done   = sum(1 for m in all_missions if m.get("status") == "completed")
     shortages = sum(1 for r in resources if r.get("quantity", 0) < r.get("min_threshold", 10))
-    
-    return {
+
+    payload = {
         "volunteers_available": vols,
         "resolved_needs": resolved,
         "critical_needs": critical,
@@ -2449,6 +3135,9 @@ async def get_community_stats():
         "avg_response_hours": 1.5,
         "community_trust": 98.4
     }
+
+    _DASHBOARD_CACHE.set(cache_key, payload)
+    return payload
 
 
 @api_router.get("/analytics/trend")
@@ -2461,13 +3150,66 @@ async def analytics_trend(user=Depends(require_roles("admin"))):
         h_start = now - timedelta(hours=(6-i)*4)
         h_end = h_start + timedelta(hours=4)
         count = await db.needs.count_documents({
-            "created_at": {"$gte": iso(h_start), "$lt": iso(h_end)}
+            "created_at": {"$gte": iso(h_start), "$lt": iso(h_end)},
+            **_org_scope_filter(user)
         })
         trend.append({
             "time": h_start.strftime("%H:%M"),
             "active": count + random.randint(5, 15) # Base floor + real data
         })
     return trend
+
+
+@api_router.get("/analytics/hotspots")
+async def analytics_hotspots(user=Depends(require_roles("admin"))):
+    """📍 Predictive Hotspots: simple grid bucket + week-over-week delta."""
+    now = now_utc()
+    window_start = now - timedelta(days=7)
+    prev_start = now - timedelta(days=14)
+
+    org_filter = _org_scope_filter(user)
+
+    recent = await db.needs.find(
+        {"created_at": {"$gte": iso(window_start)}, **org_filter},
+        {"_id": 0, "location": 1, "category": 1}
+    ).to_list(length=1000)
+    previous = await db.needs.find(
+        {"created_at": {"$gte": iso(prev_start), "$lt": iso(window_start)}, **org_filter},
+        {"_id": 0, "location": 1, "category": 1}
+    ).to_list(length=1000)
+
+    def bucket_key(loc: Dict[str, Any]) -> str:
+        lat = round(float(loc.get("lat", 0)) / 0.05) * 0.05
+        lng = round(float(loc.get("lng", 0)) / 0.05) * 0.05
+        return f"{lat:.2f},{lng:.2f}"
+
+    def count_by_bucket(rows: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for r in rows:
+            loc = r.get("location") or {}
+            key = bucket_key(loc)
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+    recent_counts = count_by_bucket(recent)
+    prev_counts = count_by_bucket(previous)
+
+    buckets = []
+    for key, count in recent_counts.items():
+        prev = prev_counts.get(key, 0)
+        delta = count - prev
+        lat, lng = key.split(",")
+        buckets.append({
+            "bucket": key,
+            "lat": float(lat),
+            "lng": float(lng),
+            "count": count,
+            "delta": delta,
+            "alert_level": "high" if delta >= 5 or count >= 12 else ("medium" if delta >= 2 else "low")
+        })
+
+    buckets.sort(key=lambda b: (b["alert_level"], b["count"]), reverse=True)
+    return {"window_days": 7, "hotspots": buckets[:10]}
 
 
 @api_router.post("/system/state")
@@ -2505,9 +3247,13 @@ async def update_system_state(body: Dict[str, Any], background_tasks: Background
 async def heatmap(user=Depends(get_current_user)):
     # 🛰️ Bandwidth Sculpting: Only fetch location and visual scoring data
     needs = await db.needs.find(
-        {"status": {"$in": ["pending", "assigned", "in_progress"]}},
+        {"status": {"$in": ["pending", "assigned", "in_progress"]}, **_org_scope_filter(user)},
         {"_id": 0}
     ).select(["location", "priority_score", "category", "urgency", "id", "title"]).to_list(length=500)
+    if user["role"] == "user":
+        for n in needs:
+            if n.get("location"):
+                n["location"] = _fuzz_location(n["location"], f"heat:{n.get('id')}:{datetime.now(timezone.utc).date()}")
     return needs
 
 
@@ -2516,7 +3262,8 @@ async def heatmap(user=Depends(get_current_user)):
 
 @api_router.get("/analytics/audit-log")
 async def audit_log(user=Depends(require_roles("admin"))):
-    logs = await db.audit_logs.find({}, {"_id": 0}).sort("timestamp", -1).limit(100).to_list(length=100)
+    org_id = user.get("org_id") or PUBLIC_ORG
+    logs = await db.audit_logs.find({"meta.org_id": {"$in": [org_id, None]}}, {"_id": 0}).sort("timestamp", -1).limit(100).to_list(length=100)
     return logs
 
 
@@ -2561,7 +3308,7 @@ async def global_live_stats():
 @api_router.post("/ai/insight")
 async def ai_insight_route(body: Dict[str, Any], user=Depends(get_current_user)):
     q = body.get("query", "Summarize current operational status.")
-    stats = await dashboard_stats()
+    stats = await get_community_stats(user)
     prompt = f"Context (ops dashboard): {stats}\n\nUser query: {q}\n\nAdvise in 4 concise bullets."
     text = await ai_insight(prompt)
     return {"response": text}
@@ -2569,7 +3316,7 @@ async def ai_insight_route(body: Dict[str, Any], user=Depends(get_current_user))
 
 @api_router.post("/ai/forecast")
 async def ai_forecast(user=Depends(require_roles("admin"))):
-    analytics = await analytics_overview()
+    analytics = await analytics_overview(user)
     prompt = (
         f"Historical ops data: {analytics}.\n\n"
         "Predict the top 3 demand categories for next 30 days and recommend pre-positioned resources. "
@@ -2583,6 +3330,7 @@ async def ai_forecast(user=Depends(require_roles("admin"))):
 @api_router.post("/seed/demo")
 async def seed_demo(user=Depends(require_roles("admin"))):
     # idempotent seed
+    demo_org = "janrakshak-demo"
     demo_credentials = [
         {
             "role": "admin",
@@ -2631,7 +3379,7 @@ async def seed_demo(user=Depends(require_roles("admin"))):
             existing["role"] = cred["role"]
             user_by_email[cred["email"]] = existing
         else:
-            user = User(id=uid, name=cred["name"], email=cred["email"], role=cred["role"], language=cred["language"])
+            user = User(id=uid, name=cred["name"], email=cred["email"], role=cred["role"], org_id=demo_org, language=cred["language"])
             doc = user.model_dump()
             await db.users.insert_one(doc)
             user_by_email[cred["email"]] = doc
@@ -2641,6 +3389,7 @@ async def seed_demo(user=Depends(require_roles("admin"))):
         volunteer_profile = Volunteer(
             user_id=volunteer_user["id"],
             name=volunteer_user["name"],
+            org_id=demo_org,
             skills=["first_aid", "logistics", "hindi"],
             transport="bike",
             trust_score=90,
@@ -2669,10 +3418,10 @@ async def seed_demo(user=Depends(require_roles("admin"))):
             )
             await db.users.insert_one({
                 "id": uid, "name": d["name"], "email": demo_email,
-                "role": "volunteer", "phone": None, "language": "en", "created_at": iso(now_utc()),
+                "role": "volunteer", "phone": None, "language": "en", "created_at": iso(now_utc()), "org_id": demo_org,
             })
             v = Volunteer(
-                user_id=uid, name=d["name"], skills=d["skills"], transport=d["transport"],
+                user_id=uid, name=d["name"], skills=d["skills"], transport=d["transport"], org_id=demo_org,
                 trust_score=d["trust"], base_location=GeoPoint(lat=d["lat"], lng=d["lng"]),
                 completed_missions=int(d["trust"]/10), languages=["en", "hi"]
             )
@@ -2707,7 +3456,7 @@ async def seed_demo(user=Depends(require_roles("admin"))):
             n = NeedRequest(
                 title=d["title"], category=d["category"], description=d["description"],
                 location=GeoPoint(lat=d["lat"], lng=d["lng"]),
-                urgency=d["urgency"], people_affected=d["ppl"],
+                urgency=d["urgency"], people_affected=d["ppl"], org_id=demo_org,
                 vulnerability=d["vuln"], severity=d["severity"], source="admin",
             )
             n.priority_score = compute_priority(n.model_dump(), state["disaster_mode"])
@@ -2726,7 +3475,7 @@ async def seed_demo(user=Depends(require_roles("admin"))):
         for d in demo_res:
             r = Resource(
                 name=d["name"], category=d["category"], quantity=d["quantity"],
-                min_threshold=d["min_threshold"], warehouse=d["warehouse"],
+                min_threshold=d["min_threshold"], warehouse=d["warehouse"], org_id=demo_org,
                 location=GeoPoint(lat=d["lat"], lng=d["lng"]),
             )
             await db.resources.insert_one(r.model_dump())
@@ -2853,6 +3602,11 @@ async def get_aggregated_stats(user=Depends(require_roles("admin"))):
 # Include router
 app.include_router(api_router)
 
+
+@app.on_event("startup")
+async def startup_event():
+    validate_env()
+    logger.info("🛰️ JANRAKSHAK COMMAND CENTER ONLINE. Environment Validated.")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

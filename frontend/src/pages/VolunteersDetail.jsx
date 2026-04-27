@@ -81,11 +81,11 @@ export default function VolunteerDetailPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-[var(--bone-alt)] p-3 border border-[var(--border)] flex flex-col items-center">
                     <span className="text-[8px] font-bold opacity-40">TRUST SCORE</span>
-                    <span className="text-2xl font-black text-[var(--signal-red)] leading-none">{Math.round(vol.trust_score)}</span>
+                    <span className="text-2xl font-black text-[var(--signal-red)] leading-none">{Math.round(vol.trust_score || 0)}</span>
                   </div>
                   <div className="bg-[var(--bone-alt)] p-3 border border-[var(--border)] flex flex-col items-center">
                     <span className="text-[8px] font-bold opacity-40">MISSIONS</span>
-                    <span className="text-2xl font-black text-[var(--ink)] leading-none">{vol.completed_missions}</span>
+                    <span className="text-2xl font-black text-[var(--ink)] leading-none">{vol.completed_missions || 0}</span>
                   </div>
                 </div>
               </div>
@@ -102,14 +102,14 @@ export default function VolunteerDetailPage() {
               </div>
               <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-tight">
                 <IdentificationCard size={18} weight="bold" className="text-[var(--ink-muted)]" />
-                <span>Lang: {vol.languages?.join(', ')}</span>
+                <span>Lang: {(vol.languages || ['en']).join(', ')}</span>
               </div>
             </div>
 
             <div className="mt-8">
               <div className="text-[9px] font-black uppercase text-[var(--ink-soft)] tracking-widest mb-3">Skill Certifications</div>
               <div className="flex flex-wrap gap-1.5">
-                {vol.skills.map(s => (
+                {(vol.skills || []).map(s => (
                   <span key={s} className="px-2 py-1 bg-[var(--bone-alt)] border border-[var(--border)] text-[9px] font-black uppercase tracking-tight">
                     {s.replace(/_/g, ' ')}
                   </span>
@@ -139,7 +139,7 @@ export default function VolunteerDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]/50">
-                  {vol.missions_history?.length === 0 ? (
+                  {(!vol.missions_history || vol.missions_history.length === 0) ? (
                     <tr>
                       <td colSpan="3" className="py-8 text-center text-[10px] font-mono opacity-40">NO MISSIONS LOGGED</td>
                     </tr>
@@ -183,7 +183,7 @@ export default function VolunteerDetailPage() {
               </h2>
             </div>
             <div className="p-4 space-y-3">
-              {vol.activity_log?.length === 0 ? (
+              {(!vol.activity_log || vol.activity_log.length === 0) ? (
                 <div className="py-8 text-center text-[10px] font-mono opacity-40 uppercase">No recent trust adjustments</div>
               ) : (
                 vol.activity_log.map((log, i) => (

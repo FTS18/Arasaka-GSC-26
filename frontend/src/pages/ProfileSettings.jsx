@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // #23
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { getDashboardPathForRole } from "@/lib/roleRoutes"; // #23
 import { User, IdentificationBadge, Translate, Phone, Briefcase, MapPin, CheckCircle } from "@phosphor-icons/react";
 
 export default function ProfileSettings() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth(); // #23: need refresh to re-init auth context
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,7 +39,7 @@ export default function ProfileSettings() {
           language: data.language || "en",
           volunteer_data: {
             availability: data.volunteer_data?.availability || "available",
-            base_location: data.volunteer_data?.base_location || { lat: 28.6139, lng: 77.2090 },
+            base_location: data.volunteer_data?.base_location || { lat: 0, lng: 0 }, // #34: no Delhi default
             skills: data.volunteer_data?.skills || []
           }
         });
@@ -111,7 +114,9 @@ export default function ProfileSettings() {
       const res = await api.post("/auth/toggle-role");
       localStorage.setItem("janrakshak_token", res.data.token);
       toast.success(res.data.message);
-      window.location.reload(); 
+      // #23: use auth refresh + navigate instead of full page reload
+      await refresh();
+      navigate(getDashboardPathForRole(res.data.role || user.role));
     } catch (e) {
       toast.error("Role switch failed.");
     } finally {
@@ -178,8 +183,8 @@ export default function ProfileSettings() {
                   onChange={e => setFormData(prev => ({...prev, language: e.target.value}))}
                 >
                   <option value="en">English (US)</option>
+                  {/* #13: removed Español — i18n only supports en/hi, selecting es broke entire UI */}
                   <option value="hi">हिंदी (Hindi)</option>
-                  <option value="es">Español (Spanish)</option>
                 </select>
               </div>
             </div>

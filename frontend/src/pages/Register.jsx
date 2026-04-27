@@ -16,7 +16,7 @@ export default function RegisterPage() {
     try {
       await register(form);
       toast.success("Account created");
-      nav("/dashboard");
+      nav("/onboarding"); // #5: new users must complete onboarding before dashboard
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Registration failed");
     } finally { setLoading(false); }
@@ -35,9 +35,9 @@ export default function RegisterPage() {
           <div>
             <label className="tc-label">Role</label>
             <select className="tc-select" value={form.role} onChange={(e)=>upd("role", e.target.value)} data-testid="reg-role">
-              <option value="user">User</option>
-              <option value="volunteer">Volunteer</option>
-              <option value="admin">Admin</option>
+              <option value="user">User (Resident)</option>
+              <option value="volunteer">Volunteer (Field Responder)</option>
+              {/* #21: Admin removed — cannot self-register as admin, must be promoted */}
             </select>
           </div>
           <button className="btn-primary w-full" disabled={loading} data-testid="reg-submit">

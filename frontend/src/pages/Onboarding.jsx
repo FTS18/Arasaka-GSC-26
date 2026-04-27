@@ -35,7 +35,6 @@ export default function OnboardingPage() {
         city,
         skills: skills.split(",").map(s => s.trim()).filter(s => s),
         transport,
-        home_location: { lat: 19.076, lng: 72.877 }, // Default to city center
         emergency_contact: ""
       });
       toast.success("Profile Activated");
@@ -148,7 +147,7 @@ export default function OnboardingPage() {
         )}
 
         <div className="mt-8 pt-6 border-t border-[var(--border)] text-[10px] font-mono text-[var(--ink-muted)] text-center tracking-widest">
-          Auth ID: {user?.id}
+          JANRAKSHAK · FIELD OPS SYSTEM · SECURE ONBOARDING
         </div>
       </div>
     </div>

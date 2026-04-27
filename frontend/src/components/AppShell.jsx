@@ -25,10 +25,11 @@ const SearchModal = ({ open, setOpen, navItems, navigate }) => {
       const fetchSearchData = async () => {
         setLoading(true);
         try {
+          const canSeeMissions = user?.role === "admin" || user?.role === "volunteer";
           const [n, m, vInfo] = await Promise.all([
             api.get("/needs?limit=20"),
-            api.get("/missions?limit=20"),
-            api.get("/volunteers?limit=20")
+            canSeeMissions ? api.get("/missions?limit=20") : Promise.resolve({ data: [] }),
+            canSeeMissions ? api.get("/volunteers?limit=20") : Promise.resolve({ data: [] })
           ]);
           setResults({ 
             nav: navItems,
@@ -49,7 +50,7 @@ const SearchModal = ({ open, setOpen, navItems, navigate }) => {
     return {
       nav: navItems.filter(i => i.name.toLowerCase().includes(q)),
       needs: results.needs.filter(n => n.title.toLowerCase().includes(q) || n.id.includes(q)),
-      missions: results.missions.filter(m => m.id.includes(q)),
+      missions: results.missions.filter(m => m.id.includes(q) || (m.title || m.description || "").toLowerCase().includes(q)), // #25: search by title too
       volunteers: results.volunteers.filter(v => v.name.toLowerCase().includes(q))
     };
   }, [query, results, navItems]);
@@ -144,7 +145,7 @@ export default function AppShell({ children }) {
   const dashboardPath = getDashboardPathForRole(user?.role);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [coords, setCoords] = useState("28.61°N, 77.20°E");
+  const [coords, setCoords] = useState("Locating..."); // #9: don't show Delhi before GPS resolves
   const [time, setTime] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -191,16 +192,19 @@ export default function AppShell({ children }) {
         if (queued.length > 0) {
           const tId = toast.loading(`Syncing ${queued.length} offline operations...`);
           try {
-            for (const req of queued) {
-              await api({
-                url: req.url,
-                method: req.method,
-                data: req.body
-              });
+            // #30: parallel sync — one failure no longer blocks all others
+            const results = await Promise.allSettled(
+              queued.map(req => api({ url: req.url, method: req.method, data: req.body }))
+            );
+            const ok = results.filter(r => r.status === 'fulfilled').length;
+            const fail = results.filter(r => r.status === 'rejected').length;
+            if (fail === 0) {
+              await clearQueuedRequests();
+              setSyncQueue(0);
+              toast.success(`Delta-Sync Complete: ${ok} operations synced`, { id: tId });
+            } else {
+              toast.warning(`${ok} synced, ${fail} failed — will retry`, { id: tId });
             }
-            await clearQueuedRequests();
-            setSyncQueue(0);
-            toast.success("Delta-Sync Complete", { id: tId });
           } catch (err) {
             toast.error("Sync failed - will retry later", { id: tId });
           }
@@ -234,7 +238,7 @@ export default function AppShell({ children }) {
       try {
         const canSeeMissions = user?.role === 'admin' || user?.role === 'volunteer';
         const [rRes, mRes] = await Promise.allSettled([
-          api.get("/needs"),
+          api.get("/needs?limit=50"), // #8: limit badge fetch — don't download entire collection
           canSeeMissions ? api.get("/missions") : Promise.resolve({ data: [] })
         ]);
         
@@ -261,10 +265,17 @@ export default function AppShell({ children }) {
 
   useEffect(() => {
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        const { latitude, longitude } = pos.coords;
-        setCoords(`${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`);
-      });
+      // #35: 5s timeout + error handler — no more infinite "Locating..."
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setCoords(`${latitude.toFixed(2)}°N, ${longitude.toFixed(2)}°E`);
+        },
+        () => setCoords("GPS unavailable"),
+        { timeout: 5000, maximumAge: 300000 }
+      );
+    } else {
+      setCoords("GPS unsupported");
     }
   }, []);
 
@@ -309,7 +320,7 @@ export default function AppShell({ children }) {
             <button 
               onClick={listening ? stopListening : startListening}
               className={`p-2 border-2 ${listening ? "bg-[var(--signal-red)] border-[var(--signal-red)] animate-pulse" : "bg-[var(--bone-alt)] border-[var(--border)]"} shadow-[2px_2px_0px_var(--border)] transition-all`}
-              aria-label="Voice Dispatch"
+              aria-label={t("voice_dispatch")}
             >
               <Microphone size={16} weight={listening ? "fill" : "bold"} className={listening ? "text-white" : "text-[var(--ink)]"} />
             </button>
@@ -339,7 +350,7 @@ export default function AppShell({ children }) {
               </div>
             </div>
             <button onClick={() => { logout(); navigate("/login"); }} className="btn-hard w-full !text-[10px] py-3 flex items-center justify-center gap-2">
-              <SignOut size={16} weight="bold" /> Log Out
+              <SignOut size={16} weight="bold" /> {t("logout")}
             </button>
           </div>
         </aside>
@@ -427,7 +438,7 @@ export default function AppShell({ children }) {
                 ))}
               </div>
             </div>
-            {!collapsed && <div className="text-[9px] font-bold text-[var(--ink-muted)] tracking-tighter">VERSION 2.6.4</div>}
+            {!collapsed && <div className="text-[9px] font-bold text-[var(--ink-muted)] tracking-tighter">v2.6.4</div>}
           </div>
 
           {collapsed && (
@@ -473,7 +484,8 @@ export default function AppShell({ children }) {
               <div className="flex items-center gap-2 ml-2" role="alert" aria-live="assertive">
                 <div className="tc-badge !bg-[var(--signal-red)] !text-white flex items-center gap-1.5 px-2 py-1 border border-[#4a4947] shadow-[2px_2px_0px_#4a4947]">
                   <Siren size={12} weight="fill" className="animate-bounce" aria-hidden="true" />
-                  <span className="font-black tracking-tight">{t(disaster_reason?.toLowerCase()) || disaster_reason || t("disaster_mode")}</span>
+                  {/* #3: disaster_reason never declared in useDisaster() — was ReferenceError */}
+                  <span className="font-black tracking-tight">{t("disaster_mode")}</span>
                 </div>
               </div>
             )}
@@ -482,7 +494,7 @@ export default function AppShell({ children }) {
             <button 
               onClick={() => listening ? stopListening() : startListening()}
               className={`p-2 border border-[var(--border)] transition-all ${listening ? "bg-[var(--signal-red)] text-white animate-pulse" : "bg-[var(--bone-alt)] text-[var(--ink)]"}`}
-              title="Voice Dispatch"
+              title={t("voice_dispatch")}
             >
               {listening ? <Microphone weight="fill" size={16} /> : <Microphone size={16} weight="bold" />}
             </button>
@@ -498,7 +510,7 @@ export default function AppShell({ children }) {
               className="p-2 flex items-center gap-2 bg-[#2a2928] text-[var(--bone)] border border-[#4a4947] shadow-[2px_2px_0px_var(--border)]"
             >
               <MagnifyingGlass size={16} weight="bold" />
-              <span className="hidden lg:inline text-[9px] font-black uppercase">Search</span>
+              <span className="hidden lg:inline text-[9px] font-black uppercase text-white">{t("search")}</span>
             </button>
           </div>
         </header>
@@ -513,7 +525,7 @@ export default function AppShell({ children }) {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bone)] border-t-2 border-[var(--ink)] flex justify-around items-center h-16 z-50 pb-safe">
           <Link to={dashboardPath} className="flex-1 flex flex-col items-center justify-center text-[var(--ink-soft)] hover:text-[var(--signal-red)]"><SquaresFour size={24} /></Link>
           <Link to="/needs" className="flex-1 flex flex-col items-center justify-center text-[var(--ink-soft)] hover:text-[var(--signal-red)]"><Warning size={24} /></Link>
-          <Link to="/map" className="flex-1 flex flex-col items-center justify-center text-[var(--ink-soft)] hover:text-[var(--signal-red)]"><MapTrifold size={24} /></Link>
+          {user?.role !== "user" && <Link to="/map" className="flex-1 flex flex-col items-center justify-center text-[var(--ink-soft)] hover:text-[var(--signal-red)]"><MapTrifold size={24} /></Link>}
           <button onClick={() => setMobileMenuOpen(true)} className="flex-1 flex flex-col items-center justify-center text-[var(--ink-soft)]"><List size={24} /></button>
         </nav>
       )}

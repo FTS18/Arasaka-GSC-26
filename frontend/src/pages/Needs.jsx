@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { MagnifyingGlass, Funnel, Scan, FileCsv, CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TableRowSkeleton } from "@/components/SkeletonLoader";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
+import SEO from "@/components/SEO";
 
 export default function NeedsPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
+  const nav = useNavigate();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
@@ -19,7 +23,7 @@ export default function NeedsPage() {
   // 🏛️ Strategy 3: React Query (Automatic Caching + Staletime)
   // 🏛️ Strategy 13: Poor Man's Persistence (0 cost, no library)
   const queryKey = ['needs', status, category, page];
-  const { data: needs = [], isLoading, refetch } = useQuery({
+  const { data: needs = [], isLoading, isError, error, refetch } = useQuery({
     queryKey,
     queryFn: async () => {
       const q = new URLSearchParams();
@@ -34,11 +38,14 @@ export default function NeedsPage() {
       localStorage.setItem(`cache_${JSON.stringify(queryKey)}`, JSON.stringify(r.data));
       return r.data;
     },
+    enabled: !!user,
+    retry: false,
     // Load from stealth cache if available
     placeholderData: () => {
       const cached = localStorage.getItem(`cache_${JSON.stringify(queryKey)}`);
       return cached ? JSON.parse(cached) : undefined;
-    }
+    },
+    refetchOnWindowFocus: false,
   });
 
   // 🏛️ Strategy 5: WebSocket Invalidation (Live Update Sync)
@@ -87,11 +94,18 @@ export default function NeedsPage() {
     n.id.toLowerCase().includes(search.toLowerCase())
   );
 
+  const showAuthHint = !user;
+  const loadErrorMessage = isError
+    ? (error?.response?.data?.detail || error?.message || "Failed to load requests")
+    : null;
+  const emptyResults = !isLoading && filtered.length === 0;
+
   return (
     <div className="p-4 md:p-6 space-y-6" data-testid="needs-page">
+      <SEO title={t("needs")} description="Manage and track tactical humanitarian requests and field operations." />
       <div className="pb-2">
         <h1 className="font-heading text-4xl font-black uppercase tracking-tighter leading-none text-[var(--ink)]">
-          Requests
+          {t("needs")}
         </h1>
       </div>
 
@@ -103,7 +117,7 @@ export default function NeedsPage() {
           <input 
             type="text" 
             className="flex-1 bg-transparent border-none focus:ring-0 px-4 text-xs font-bold text-[var(--ink)] placeholder:text-[var(--ink-muted)] placeholder:font-normal tracking-wider" 
-            placeholder="Search entries..." 
+            placeholder={t("search_entries")} 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -112,8 +126,8 @@ export default function NeedsPage() {
         <div className="grid grid-cols-2 bg-white border-2 border-[var(--border)] shadow-[4px_4px_0px_var(--bone-alt)] h-14 overflow-hidden transition-all hover:border-[var(--ink-muted)]">
           <div className="border-r-2 border-[var(--border)] flex items-center">
             <select className="w-full bg-transparent text-[10px] font-black uppercase py-4 px-4 outline-none cursor-pointer hover:bg-[var(--bone-alt)] transition-colors" value={status} onChange={(e)=>{setStatus(e.target.value); setPage(0);}}>
-              <option value="">Status: All</option>
-              <option value="pending">Pending</option>
+              <option value="">{t("status_all")}</option>
+              <option value="pending">{t("pending")}</option>
               <option value="assigned">Assigned</option>
               <option value="in_progress">Active</option>
               <option value="completed">Resolved</option>
@@ -121,8 +135,8 @@ export default function NeedsPage() {
           </div>
           <div className="flex items-center">
             <select className="w-full bg-transparent text-[10px] font-black uppercase py-4 px-4 outline-none cursor-pointer hover:bg-[var(--bone-alt)] transition-colors" value={category} onChange={(e)=>{setCategory(e.target.value); setPage(0);}}>
-              <option value="">Sector: All</option>
-              <option value="food">Food Supply</option>
+              <option value="">{t("category_all")}</option>
+              <option value="food">{t("food")}</option>
               <option value="medical">Medical Gear</option>
               <option value="shelter">Shelter Info</option>
               <option value="blood_donation">Blood Ops</option>
@@ -138,20 +152,34 @@ export default function NeedsPage() {
             </button>
           </div>
           <Link to="/needs/new" className="bg-[var(--signal-red)] text-white border-2 border-[var(--signal-red)] px-6 flex items-center justify-center font-black uppercase text-[11px] tracking-tighter shadow-[4px_4px_0px_rgba(230,57,70,0.2)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all">
-            + New
+            + {t("new")}
           </Link>
         </div>
       </div>
 
       <div className="bg-white border-2 border-[var(--border)] shadow-[4px_4px_0px_var(--bone-alt)] overflow-x-auto transition-all">
+        {showAuthHint ? (
+          <div className="p-8 text-center text-[var(--ink-soft)] font-mono text-sm">
+            Loading session. If this stays here, sign in again so requests can be fetched.
+          </div>
+        ) : loadErrorMessage ? (
+          <div className="p-8 text-center text-[var(--signal-red)] font-mono text-sm space-y-2">
+            <div>Requests failed to load.</div>
+            <div className="text-[var(--ink-soft)]">{loadErrorMessage}</div>
+          </div>
+        ) : emptyResults ? (
+          <div className="p-8 text-center text-[var(--ink-soft)] font-mono text-sm">
+            No requests match the current filters.
+          </div>
+        ) : (
         <table className="w-full">
           <thead>
             <tr className="bg-[var(--bone-alt)] border-b-2 border-[var(--border)]">
-              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">Prio</th>
-              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">Operation Details</th>
-              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">Sector</th>
-              <th className="py-2.5 px-4 text-center text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">Urg</th>
-              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">Status</th>
+              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">{t("prio")}</th>
+              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">{t("op_details")}</th>
+              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">{t("sector")}</th>
+              <th className="py-2.5 px-4 text-center text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">{t("urg")}</th>
+              <th className="py-2.5 px-4 text-left text-[10px] font-bold uppercase text-[var(--ink-soft)] tracking-wider">{t("status")}</th>
               <th className="py-2.5 px-4"></th>
             </tr>
           </thead>
@@ -164,7 +192,7 @@ export default function NeedsPage() {
                 className="hover:bg-[var(--bone-alt)]/30 border-b border-[var(--ink)]/5 last:border-0 transition-colors cursor-pointer group"
                 onClick={(e) => {
                   if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') {
-                    window.location.href = `/needs/${n.id}`;
+                    nav(`/needs/${n.id}`);
                   }
                 }}
               >
@@ -221,6 +249,7 @@ export default function NeedsPage() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
 
       {/* 🏛️ Strategy 6: Pagination Navigator */}

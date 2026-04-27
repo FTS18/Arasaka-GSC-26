@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import SEO from "@/components/SEO";
 import { Sparkle, Pulse, HardDrive, ShieldCheck, Cpu, Eye, Broadcast } from "@phosphor-icons/react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { useI18n } from "@/context/I18nContext";
 
 const QuotaBar = ({ label, used, total, icon: Icon, color = "var(--ink)" }) => {
   const pct = Math.min(100, Math.round((used / total) * 100));
@@ -26,6 +28,7 @@ const QuotaBar = ({ label, used, total, icon: Icon, color = "var(--ink)" }) => {
 };
 
 export default function Analytics() {
+  const { t } = useI18n();
   const [forecast, setForecast] = useState("");
   const [floading, setFloading] = useState(false);
 
@@ -51,7 +54,16 @@ export default function Analytics() {
       const r = await api.get("/admin/system/usage");
       return r.data;
     },
-    refetchInterval: 10000 
+    refetchInterval: 15000,
+    retry: 1,
+  });
+
+  const { data: hotspots } = useQuery({
+    queryKey: ['hotspots'],
+    queryFn: async () => {
+      const r = await api.get("/analytics/hotspots");
+      return r.data;
+    }
   });
 
   const doForecast = async () => {
@@ -63,43 +75,39 @@ export default function Analytics() {
     finally { setFloading(false); }
   };
 
-  if (!a) return <div className="p-8 font-mono text-[10px] tracking-tighter text-[var(--ink-soft)] text-center mt-20">Establishing command link...</div>;
+  if (!a) return <div className="p-8 font-mono text-[10px] tracking-tighter text-[var(--ink-soft)] text-center mt-20">{t('establishing_link')}</div>;
 
   return (
     <div className="p-6 md:p-8 space-y-8" data-testid="analytics-page">
+      <SEO title="Analytics" description="Tactical data visualization and operational metrics for disaster relief." />
       <div className="flex justify-between items-end">
         <div>
-          <div className="tc-label">Tactical Telemetry</div>
-          <h1 className="font-heading text-5xl font-black tracking-tighter mt-1 leading-none">Command Intelligence</h1>
+          <div className="tc-label">{t('tactical_telemetry')}</div>
+          <h1 className="font-heading text-5xl font-black tracking-tighter mt-1 leading-none">{t('command_intelligence')}</h1>
         </div>
         <div className="hidden md:block font-mono text-[10px] text-right text-[var(--ink-soft)]">
-            Protocol: GDC-Arasaka-26<br/>
-            Ref: Janus-Sentinel
+            Janrakshak · GSC-2026<br/>
+            Powered by Gemini 2.5
         </div>
       </div>
 
       {/* 🚀 Integrated API & AI Quota Monitor */}
       <section className="space-y-4">
         <div className="flex items-center gap-4">
-            <h2 className="tc-label !mb-0">Global Resource Quotas</h2>
+            <h2 className="tc-label !mb-0">{t('global_resource_quotas')}</h2>
             <div className="h-px flex-1 bg-[var(--border)]"></div>
             <div className={`px-2 py-0.5 font-mono text-[10px] font-bold ${usage?.status === "operational" ? "bg-green-600" : "bg-[var(--signal-red)]"} text-white`}>
-                System: {usage?.status || "Pending"}
+                {t('system')}: {usage?.status || "Pending"}
             </div>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-           {/* Firestore Matrix */}
            <QuotaBar label="Firestore Reads" used={usage?.usage?.reads || 0} total={usage?.limits?.reads || 50000} icon={ShieldCheck} color="var(--signal-red)"/>
            <QuotaBar label="Firestore Writes" used={usage?.usage?.writes || 0} total={usage?.limits?.writes || 20000} icon={Pulse} color="var(--ink)"/>
-           
-           {/* Gemini Intelligence */}
            <QuotaBar label="Gemini 2.5 Flash" used={usage?.usage?.gemini_flash || 0} total={usage?.limits?.gemini_flash || 1500} icon={Cpu} color="#4285F4"/>
            <QuotaBar label="Gemini Vision" used={usage?.usage?.gemini_vision || 0} total={usage?.limits?.gemini_vision || 500} icon={Eye} color="#FBBC04"/>
-           
-           {/* Comms & System */}
            <QuotaBar label="Telegram Ops" used={usage?.usage?.telegram_ops || 0} total={usage?.limits?.telegram_ops || 10000} icon={Broadcast} color="#34A853"/>
-           <QuotaBar label="Memory Cache" used={84} total={100} icon={HardDrive} color="var(--ink-soft)"/>
+           <QuotaBar label="AI Deletes" used={usage?.usage?.deletes || 0} total={usage?.limits?.deletes || 20000} icon={HardDrive} color="var(--ink-soft)"/>
         </div>
       </section>
 
@@ -112,27 +120,27 @@ export default function Analytics() {
       <div className="grid lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-8">
           <div className="grid md:grid-cols-2 gap-6">
-            <div className="tc-card">
+            <div className="tc-card min-w-0 overflow-hidden">
               <div className="tc-label">Demand Hierarchy</div>
-              <div className="h-[240px] w-full mt-4">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[240px] w-full mt-4 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={a.by_category}>
                     <CartesianGrid stroke="#D1CFCA" strokeDasharray="2 4" vertical={false} />
                     <XAxis dataKey="category" hide />
                     <YAxis stroke="#5C5E60" tick={{ fontFamily: "JetBrains Mono", fontSize: 10 }} />
                     <Tooltip cursor={{fill: '#f5f5f5'}} 
                        contentStyle={{ fontFamily: "JetBrains Mono", fontSize: 12, border: '2px solid black', borderRadius: 0 }} 
-                       formatter={(v, name, props) => [v, props.payload.category]}
+                       formatter={(v, name, props) => [v, (props.payload.category || "").replace(/_/g, " ").toUpperCase()]}
                     />
                     <Bar dataKey="count" fill="var(--signal-red)" stroke="var(--ink)" strokeWidth={1} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="tc-card">
+            <div className="tc-card min-w-0 overflow-hidden">
               <div className="tc-label">Load Progression</div>
-              <div className="h-[240px] w-full mt-4">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[240px] w-full mt-4 min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <LineChart data={a.monthly_trend}>
                     <CartesianGrid stroke="#D1CFCA" strokeDasharray="2 4" vertical={false} />
                     <XAxis dataKey="month" stroke="#5C5E60" tick={{ fontFamily: "JetBrains Mono", fontSize: 10 }} />
@@ -169,6 +177,27 @@ export default function Analytics() {
                     Perform triage analysis to unlock predictive insights
                 </div>
             )}
+          </div>
+
+          <div className="tc-card">
+            <div className="tc-label">Predictive Hotspots</div>
+            <div className="text-[10px] font-mono text-[var(--ink-soft)] mt-1">Week-over-week demand spikes</div>
+            <div className="mt-4 space-y-2">
+              {(hotspots?.hotspots || []).length === 0 && (
+                <div className="text-xs font-mono text-[var(--ink-soft)]">No hotspots detected</div>
+              )}
+              {(hotspots?.hotspots || []).map((h) => (
+                <div key={h.bucket} className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <div>
+                    <div className="text-[11px] font-black">{h.bucket}</div>
+                    <div className="text-[9px] font-mono text-[var(--ink-soft)]">Delta: {h.delta} · Count: {h.count}</div>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase ${h.alert_level === "high" ? "text-[var(--signal-red)]" : h.alert_level === "medium" ? "text-amber-600" : "text-[var(--ink-soft)]"}`}>
+                    {h.alert_level}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
