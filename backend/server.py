@@ -2628,6 +2628,7 @@ async def seed_demo(user=Depends(require_roles("admin"))):
                     "email": cred["email"],
                     "role": cred["role"],
                     "language": cred["language"],
+                    "onboarded": True,
                 }}
             )
             existing["name"] = cred["name"]
@@ -2635,7 +2636,7 @@ async def seed_demo(user=Depends(require_roles("admin"))):
             existing["role"] = cred["role"]
             user_by_email[cred["email"]] = existing
         else:
-            user = User(id=uid, name=cred["name"], email=cred["email"], role=cred["role"], language=cred["language"])
+            user = User(id=uid, name=cred["name"], email=cred["email"], role=cred["role"], language=cred["language"], onboarded=True)
             doc = user.model_dump()
             await db.users.insert_one(doc)
             user_by_email[cred["email"]] = doc

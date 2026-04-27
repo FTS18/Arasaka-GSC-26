@@ -1,0 +1,152 @@
+import 'package:flutter/material.dart';
+
+class AppConfig {
+  static const String backendApi = String.fromEnvironment(
+    'BACKEND_URL',
+    defaultValue: 'http://10.0.2.2:8000/api',
+  );
+}
+
+class AppColors {
+  // Page Background
+  static const page = Color(0xFFF6F5F2);
+  static const surface = Color(0xFFFFFFFF);
+  static const surfaceAlt = Color(0xFFEBE9E4);
+  static const darkSurface = Color(0xFF1A1B1C);
+
+  // Text
+  static const primaryText = Color(0xFF111213);
+  static const secondaryText = Color(0xFF5C5E60);
+  static const mutedText = Color(0xFF8A8D91);
+  static const inverseText = Color(0xFFF6F5F2);
+
+  // Brand Accents
+  static const primary = Color(0xFFE63946);
+  static const primaryHover = Color(0xFFC02D3A);
+  static const secondary = Color(0xFF2A3D31);
+  static const secondaryHover = Color(0xFF1C2921);
+  
+  // Status
+  static const critical = Color(0xFFE63946);
+  static const warning = Color(0xFFD97706);
+  static const success = Color(0xFF1B4332);
+  static const info = Color(0xFF1E3A8A);
+  static const resolved = Color(0xFF10B981);
+
+  // Borders
+  static const borderDefault = Color(0xFFD1CFCA);
+  static const borderFocus = Color(0xFF111213);
+
+  // Legacy (mapping old names to new for compatibility during transition)
+  static const bone = page;
+  static const ink = primaryText;
+  static const danger = critical;
+  static const ok = resolved;
+}
+
+class AppTheme {
+  static ThemeData get light {
+    return ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.primary,
+        primary: AppColors.primary,
+        onPrimary: Colors.white,
+        secondary: AppColors.secondary,
+        onSecondary: Colors.white,
+        surface: AppColors.surface,
+        onSurface: AppColors.primaryText,
+        error: AppColors.critical,
+        brightness: Brightness.light,
+      ),
+      scaffoldBackgroundColor: AppColors.page,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.primaryText,
+        elevation: 0,
+        centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.5,
+          color: AppColors.primaryText,
+        ),
+        shape: Border(
+          bottom: BorderSide(color: AppColors.borderDefault, width: 1),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: AppColors.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: AppColors.borderDefault, width: 1),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(2),
+          borderSide: const BorderSide(color: AppColors.borderDefault, width: 1),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(2),
+          borderSide: const BorderSide(color: AppColors.borderDefault, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(2),
+          borderSide: const BorderSide(color: AppColors.borderFocus, width: 2),
+        ),
+        labelStyle: const TextStyle(color: AppColors.secondaryText, fontWeight: FontWeight.bold),
+        floatingLabelStyle: const TextStyle(color: AppColors.primaryText, fontWeight: FontWeight.bold),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+            fontSize: 14,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primaryText,
+          side: const BorderSide(color: AppColors.primaryText, width: 1),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.page,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primaryText);
+          }
+          return const TextStyle(fontWeight: FontWeight.normal, fontSize: 12, color: AppColors.secondaryText);
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: AppColors.primary);
+          }
+          return const IconThemeData(color: AppColors.secondaryText);
+        }),
+      ),
+      useMaterial3: true,
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontWeight: FontWeight.w900, color: AppColors.primaryText, letterSpacing: -1.0),
+        headlineMedium: TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryText, letterSpacing: -0.5),
+        titleLarge: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText),
+        bodyLarge: TextStyle(color: AppColors.primaryText),
+        bodyMedium: TextStyle(color: AppColors.primaryText),
+      ),
+    );
+  }
+}
