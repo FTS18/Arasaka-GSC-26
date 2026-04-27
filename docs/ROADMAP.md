@@ -6,7 +6,13 @@ This roadmap outlines the evolution of Janrakshak from its current operational p
 
 ---
 
--   **Impact**: Sub-second response latency for NGO field coordinators.
+## **Current Tactical State (Q2 2026)**
+Successfully transitioned from foundational prototype to **Tactical Ready (v2.8.5)**.
+- **[Aesthetic]**: Deployment of the professional **Bone Palette** design system.
+- **[Intelligence]**: Gemini 2.5 Flash integrated for **Multimodal Field Notes** and Paper OCR.
+- **[Geospatial]**: Real-time **India-Wide Command View** with cluster optimization.
+- **[Interface]**: Multi-tier **Telegram Command Bot** with OSM geocoding support.
+- **[Performance]**: Hardened **Zero-CLS** skeletal loaders for high-latency resilience.
 
 ---
 
@@ -41,14 +47,16 @@ Ensuring the platform can handle urban-density surges for "The Next Billion."
 -   **Distributed Brain Nodes**: Regionalized backend clones for local speed of light optimization.
 -   **Zero-Latency Global State**: Implementing edge-cached mission buckets for neighborhood-level coordination.
 
-## Sustainability and Local Governance
+## Sustainability and Long-Term Governance
 
-Janrakshak is designed for long-term community ownership:
--   **Open-Source Core**: The platform will remain open-source to encourage contribution and adaptation by regional governments.
--   **Localized Large Language Models**: Training local-language adapters for Gemini to ensure the platform is accessible to non-English speaking community members.
--   **NGO Partnerships**: Establishing formal integration pipelines with international organizations (e.g., Red Cross, UNICEF) to ensure standardization.
+Janrakshak is engineered for organizational and community longevity:
+-   **Financial Sustainability**: Built on Google Cloud's serverless pay-as-you-go architecture (Cloud Run, Firestore), ensuring that operational costs scale linearly with impact. For non-profits, this eliminates the need for expensive dedicated server maintenance.
+-   **Knowledge Continuity**: Automated "Briefing Synopses" ensure that when volunteer shifts rotate, the new operative has a full AI-summarized history of the mission context.
+-   **Open-Source Core**: The platform's modular structure allows local municipalities to "fork" the system for specific local regulations while contributing core logic back to the humanitarian community.
+-   **Vendor Neutrality**: While optimized for GCP, the core microservices and PWA are containerized (Docker), allowing migration to private clouds in government-restricted zones.
 
 ---
-*Strategic Roadmap v2.8.0 - Tactical Ready*
+*Strategic Roadmap v2.8.5 - Production Hardened*
 *Visionary Scope: Zero-Lag Humanity*
 *Unifying data. Empowering people. Saving lives.*
+

@@ -1,8 +1,7 @@
-# Janrakshak: Deployment and Cloud Architecture Guide
+# Janrakshak: Deployment and Operational Testing Guide
 
 ### Engineering Specifications for Production Readiness
-
-This guide outlines the infrastructure requirements and deployment procedures for scaling Janrakshak using Google Cloud Platform (GCP).
+This guide outlines the infrastructure requirements, deployment procedures, and stress-testing protocols for scaling Janrakshak using Google Cloud Platform (GCP).
 
 ---
 
@@ -19,65 +18,66 @@ Janrakshak is designed as a cloud-native, horizontally scalable system.
 
 ---
 
-## 2. Backend Deployment (Cloud Run)
+## 2. Technical Setup & Deployment
 
-### Prerequisites:
--   Docker installed.
--   Google Cloud SDK (gcloud) configured.
-
-### Deployment Workflow:
+### Backend Deployment (Cloud Run)
 1.  **Containerization**: Build the Docker image in the `backend/` directory.
     ```bash
     docker build -t gcr.io/[PROJECT_ID]/janrakshak-backend .
     ```
-2.  **Push to Container Registry**:
+2.  **Push and Deploy**:
     ```bash
     docker push gcr.io/[PROJECT_ID]/janrakshak-backend
-    ```
-3.  **Deploy to Cloud Run**:
-    ```bash
     gcloud run deploy janrakshak-backend \
       --image gcr.io/[PROJECT_ID]/janrakshak-backend \
-      --platform managed \
-      --allow-unauthenticated \
-      --set-env-vars FIREBASE_PROJECT_ID=[ID],FIREBASE_WEB_API_KEY=[KEY]
+      --set-env-vars FIREBASE_PROJECT_ID=[ID],FIREBASE_WEB_API_KEY=[KEY],TELEGRAM_BOT_TOKEN=[TOKEN]
     ```
 
----
-
-## 3. Frontend Deployment (Firebase Hosting)
-
-1.  **Build Process**: In the `frontend/` directory:
+### Frontend Deployment (Firebase Hosting)
+1.  **Build and Deploy**:
     ```bash
-    npm run build
-    ```
-2.  **Initialization**:
-    ```bash
-    firebase init hosting
-    ```
-3.  **Deployment**:
-    ```bash
+    cd frontend && npm run build
     firebase deploy --only hosting
     ```
 
 ---
 
-## 4. Scaling during Disaster Surges
+## 3. Telegram Bot Configuration
 
-Janrakshak is optimized for rapid scaling:
--   **Cold Starts**: Cloud Run is configured with a minimum of 1 instance during "Alert Levels" to eliminate initial latency.
--   **Database Throughput**: Firestore scales automatically to handle millions of concurrent connections during high-impact crisis events.
--   **Concurrency**: The FastAPI backend is configured to handle multiple asynchronous requests per container instance, maximizing cost-efficiency.
+The Janrakshak Bot can operate in two distinct modes:
+- **Polling Mode (Dev)**: Set `BOT_MODE=polling` in `.env`.
+- **Webhook Mode (Prod)**: Set `BOT_MODE=webhook` and configure the `/api/telegram/webhook` endpoint.
+
+---
+
+## 4. Crisis Simulation (The "Chaos Monkey")
+
+To ensure the platform is resilient during "Disaster Pulses," use the simulation engine to stress-test the triage and priority logic.
+
+### Prerequisites:
+-   Backend must be running.
+-   `aiohttp` must be installed: `pip install aiohttp`.
+
+### Execution:
+The script is located at `backend/scripts/simulate_crisis.py`.
+```bash
+# Simulate 50 urgent reports with a 0.2s pulse delay
+python backend/scripts/simulate_crisis.py 50 0.2
+```
+
+### Observation Checkpoints:
+- **Atomic Sync**: Verify that the `global_stats` telemetry increments in real-time ($O(1)$ complexity).
+- **Priority Triage**: Ensure high-urgency simulated reports (Fires/Floods) immediately surface at the top of the Admin dashboard.
+- **AI Processing**: Monitor the Gemini Vision pipeline for stable extraction under concurrent load.
 
 ---
 
-## 5. Security Hardening
+## 5. Security & Scaling Guardrails
 
-In production environments, ensure:
--   **CORS Policies**: Restricted only to the verified Firebase Hosting domain.
--   **Environment Variables**: `FIREBASE_SERVICE_ACCOUNT_JSON` should be injected from GCP Secret Manager, not hardcoded in `.env`.
--   **Firestore Rules**: Validate that public-write permissions are disabled.
+-   **Surge Scaling**: Cloud Run should be configured with a minimum of 1 instance during "Alert Levels" to eliminate cold-start latency.
+-   **Secret Management**: `FIREBASE_SERVICE_ACCOUNT_JSON` must be injected via GCP Secret Manager for production environments.
+-   **CORS Hardening**: Restrict API access strictly to the verified Firebase Hosting domain.
 
 ---
-*Deployment Specification v2.6.4*
+*Operational Specification v2.8.5 - Production Hardened*
 *Unifying data. Empowering people. Saving lives.*

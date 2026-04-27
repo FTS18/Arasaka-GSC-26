@@ -29,9 +29,9 @@ Janrakshak offers a novel approach by treating humanitarian aid as a high-veloci
 We have pushed the boundaries of existing tools by:
 -   **Fusing Vision AI with Logistics**: Using Gemini to bridge the gap between physical paper records (prevalent in rural and disaster-hit areas) and modern digital dashboards.
 -   **Tactical Resilience Architecture**: Implementing a Zero-Read / PWA strategy that allows the app to function as a native operational tool even in zero-bandwidth environments.
--   **Energy-Efficient Brutalist UI**: A high-contrast, low-draw interface designed to maximize mobile battery life in power-starved disaster zones.
--   **Privacy-First Geospatial Layer**: Advanced "Location Fuzzing" for public heatmaps to protect the anonymity of vulnerable populations.
--   **Hybrid Bot Ecosystem**: A dual-action Telegram bot framework that supports both rapid polling for development and production-grade webhooks for event-driven scale.
+-   **Refined Brutalist "Bone" UI**: An evolution of our high-contrast, energy-efficient brutalist system into a professional, zero-distraction "Bone" palette. Optimized for battery preservation in disaster zones while providing a premium command experience.
+-   **India-Wide Map with Privacy Fuzzing**: National situational awareness that utilizes advanced location-masking to protect the privacy of victims while providing real-time incident heatmaps for commanders.
+-   **Multimodal "Field Notes" & Handshake**: A voice-to-text integration for SITREPs, paired with a seamless "Telegram-to-Web" deep-link handshake for frictionless operative transitions.
 -   **Future Potential**: The project is designed to evolve into a meaningful, long-lasting product, with planned iterations for predictive hotspot analysis and drone-based damage assessment.
 
 ---
@@ -45,7 +45,7 @@ Janrakshak is built intentionally on the Google ecosystem to ensure the performa
 -   **Firebase Authentication & Guardrails**: Secure identity management is critical when handling vulnerable community data. Janrakshak uses Firebase Auth combined with granular Role-Based Access Control (RBAC) to ensure that only verified volunteers can access precise incident locations.
 -   **Cloud Functions for Operational Audits**: Background triggers handle automated mission audits, point-accrual for the volunteer leaderboard, and the enforcement of the "Time-Decay" priority boost for pending requests.
 
-### 2. Google AI (Gemini 2.0)
+### 2. Google AI (Gemini 2.5)
 -   **Multimodal AI Vision Intelligence**: Integrated within the "Requests" portal, Gemini-2.5-Flash allows field workers to digitize handwritten paper surveys via mobile cameras. This eliminates the "Manual Entry Bottleneck," transforming hours of paperwork into seconds of digital intelligence. The model extracts structured JSON data including need categories, population estimates, and geospatial landmarks from raw images.
 -   **Operational Reasoning & Dispatch Briefs**: Janrakshak utilizes Gemini-2.5-Flash as an operational reasoning engine. It generates human-readable "Mission Briefs" for field responders, explaining the rationale behind an assignment and synthesizing complex incident data into three-point action plans.
 
@@ -67,8 +67,8 @@ The Janrakshak backend is engineered for extreme throughput during surge events:
 ### 2. Resilient Frontend (React + PWA)
 The interface is a "Tactical Brutalist" system designed for high-stakes operational environments:
 -   **Offline-First Resilience**: A hardened Service Worker implementation ensures that responders can access assigned missions and resource inventory even during network outages.
--   **Skeleton UI & Zero-CLS**: Every page utilizes optimized skeleton loaders to eliminate Layout Shift, providing immediate perceived responsiveness on mobile devices.
--   **Adaptive High-Contrast UI**: Designed for maximum legibility and reduced GPU power consumption, ensuring the platform outlasts the crisis.
+-   **High-Fidelity Skeleton UI & Zero-CLS**: Every module utilizes precision skeleton loaders to eliminate Layout Shift (CLS), ensuring a stable, premium feel even during slow data hydration.
+-   **Professional "Bone" Palette**: A refined, minimal design system that reduces cognitive load and preserves battery life through optimized rendering cycles.
 
 ---
 
@@ -97,8 +97,8 @@ Compared to traditional manual coordination systems, Janrakshak provides:
 Janrakshak is more than just a dashboard; it is a multi-layered operational environment designed to handle thousands of concurrent data points across every role in a humanitarian mission.
 
 ### 1. High-Density Command Central (The Admin Hub)
--   **Dynamic Heatmapping Engine**: Utilizing real-time Firestore triggers, the map provides a 50ms refresh rate on incident clusters. This allows commanders to visualize the "velocity" of a crisis as it spreads.
--   **Tactical Filter Suite**: Advanced filtering by urgency, category, and demographic vulnerability allows for precision-strike aid deployment.
+-   **India-Wide Situational Awareness**: A centralized Command Map visualizing real-time incident clusters across the sub-continent, fortified by privacy-fuzzing algorithms to protect vulnerable groups.
+-   **Tactical Filter & Analytics Suite**: Advanced filtering by urgency, category, and demographic vulnerability, paired with real-time resource analytics for data-driven decisions.
 -   **Volunteer Proximity Dispatch**: Integrating Google Maps Distance Matrix API, the system identifies the top 5 closest volunteers with the required skill-set (e.g., First Aid + Bike Access) for instant mission assignment.
 -   **Global Disaster Surge Toggle**: This is a critical architectural pivot. When "Disaster Mode" is engaged, the backend automatically adjusts the JPM weights to prioritize immediate life-saving categories (Medical/Water) above all else, ensuring no critical report is buried.
 
@@ -183,7 +183,7 @@ Janrakshak has been built with rigorous attention to the core criteria of the Go
 
 ### 1. Originality & Creative Use of Technology
 -   **Fresh Perspective**: We recognized that the "Problem" in humanitarian aid is often "Data Dispersion." Janrakshak solves this not with more resources, but with better data liquidity.
--   **Imaginative Fusion**: The combination of **Gemini 2.0 (Reasoning)**, **FastAPI (Sub-second Telemetry)**, and **Brutalist UI (Zero-Cognitive Load Design)** creates a standout product that pushes the boundaries of typical hackathon submissions.
+-   **Imaginative Fusion**: The combination of **Gemini 2.5 (Reasoning)**, **FastAPI (Sub-second Telemetry)**, and **Brutalist UI (Zero-Cognitive Load Design)** creates a standout product that pushes the boundaries of typical hackathon submissions.
 -   **Future Potential**: Janrakshak is architected for evolution. Our roadmap includes integrating with IoT sensor meshes for automated earthquake/flood triggers and LLM-driven predictive aid forecasting.
 
 ### 2. Relevance of Solution & Expected Impact
@@ -219,7 +219,7 @@ Responders are required to upload a photographic record of the resolution. Furth
 ### 1. Environment Requirements
 -   Node.js 18+ and Python 3.10+
 -   Firebase Project with Firestore and Authentication initialized.
--   Google AI Studio API Key (for Gemini 2.0 services).
+-   Google AI Studio API Key (for Gemini 2.5 services).
 
 ### 2. Implementation Workflow
 ```bash
@@ -241,14 +241,15 @@ npm start
 ## Detailed Project Documentation Hub
 
 For a deep-dive into the codebase and operational standards, please refer to the `/docs` directory:
--   **[Technical Architecture](docs/ARCHITECTURE.md)**: System flow and parallelization spec.
--   **[AI Intelligence Engine](docs/AI_ENGINE.md)**: Gemini logic and JPM algorithm.
--   **[Security & Data Ethics](docs/SECURITY.md)**: Privacy standards and RBAC implementation.
--   **[API Specification](docs/API_DOCS.md)**: Full REST reference.
--   **[Data Schema](docs/SCHEMA.md)**: Firestore collection models.
--   **[Deployment Guide](docs/DEPLOYMENT.md)**: Scaling and Cloud Run specifications.
+-   **[Technical Architecture](docs/ARCHITECTURE.md)**: System flow and security spec.
+-   **[Intelligence Core](docs/INTELLIGENCE.md)**: Gemini logic, JPM algorithm, and Trust metrics.
+-   **[Telegram Command Bot](docs/TELEGRAM_BOT.md)**: Rapid field-reporting and Handshake guide.
+-   **[Technical Innovation](docs/INNOVATION.md)**: **Design novelty and engineering deep-dives.**
+-   **[Operational Deployment](docs/DEPLOYMENT.md)**: Setup and **Crisis Simulation** logic.
+-   **[Tactical Reference](docs/REFERENCE.md)**: API specification and Data Schema.
+-   **[Impact Roadmap](docs/ROADMAP.md)**: Sustainability and future vision.
 -   **[Operations Manual](docs/OPERATIONS_MANUAL.md)**: Field responder procedures.
--   **[Impact Roadmap](docs/ROADMAP.md)**: Future iterations and sustainability vision.
+-   **[Data Security](docs/SECURITY.md)**: Privacy standards and RBAC implementation.
 
 ---
 

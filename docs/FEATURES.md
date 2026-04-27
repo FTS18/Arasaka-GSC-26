@@ -8,10 +8,10 @@ Janrakshak provides a comprehensive suite of tools designed for rapid humanitari
 
 ## 1. Command & Triage Features (Admin)
 
-### Live Situational Awareness Map
--   **Real-time Heatmapping**: Visualizes clusters of high-priority assistance requests.
--   **Responder Tracking**: Shows real-time locations of field volunteers for efficient dispatch.
--   **Interactive Pinpoints**: One-click access to incident details and priority scoring.
+### Live Situational Awareness (India-Wide)
+-   **National Command View**: Multi-scale mapping engine visualizing incident clusters across India.
+-   **Resource Analytics Explorer**: High-density charts and metrics for real-time aid inventory tracking.
+-   **Responder Distribution**: Real-time heatmaps of volunteer concentration vs. demand hotspots.
 
 ### Disaster Surge Mode
 -   **Global Toggle**: A one-click tactical shift for the entire platform.
@@ -27,20 +27,22 @@ Janrakshak provides a comprehensive suite of tools designed for rapid humanitari
 
 ## 2. Field Response Features (Volunteer)
 
-### Mission Control Dashboard
+### Mission Control & Field Intelligence
 -   **Task Queue**: Sequential list of assigned missions with status indicators.
--   **Tactical Briefings**: Concise summaries generated for each mission, highlighting critical risks and required resources.
--   **Navigation Integration**: Direct link to Google Maps for optimized field routing.
+-   **Multimodal Field Notes**: Voice-to-text SITREP system for dictating field observations instantly.
+-   **Tactical AI Briefings**: AI-synthesized summaries of mission objectives and critical risk factors.
+-   **Full-Screen Tactical Modal**: Distraction-free interface for mission-critical interactions.
 
-### Volunteer Leaderboard & Points
+### [Volunteer Leaderboard & Trust System](TRUST_SYSTEM.md)
 -   **Incentivized Impact**: A trust-based system that awards points and badges for mission completion.
--   **Trust Scoring**: Dynamic score that reflects reliability, skills, and community feedback.
+-   **Verification Loop**: Multi-stage proof submission (Photo + GPS) required for mission closure.
+-   **Dynamic Trust Scoring**: Reflects reliability, speed, and mission-urgency weighting.
 
 ### Secure Mobile Profile
 -   **Skill Management**: Ability to log and update medical, logistical, or specialized certifications.
 -   **Availability Status**: Toggle to signal active presence to the Command Center.
 -   **Multi-Stage Bundle Caching**: Intelligent state restoration that prioritizes LocalStorage and cached bundles over expensive network turns.
--   **Hybrid Bot Command Interface**: Full integration with the Telegram bot for reporting and registration, supporting both Long-Polling and Webhook modes.
+-   **[Hybrid Bot Command Interface](TELEGRAM_BOT.md)**: Full integration with the Telegram bot for reporting and registration, supporting both Long-Polling and Webhook modes.
 
 ---
 
@@ -60,8 +62,9 @@ Janrakshak provides a comprehensive suite of tools designed for rapid humanitari
 
 ## 4. Platform-Wide Efficiency Features
 
-### Skeleton Loading States
--   Ensures a smooth, layout-stable experience by providing immediate visual feedback during data fetching.
+### High-Fidelity Skeleton Loaders
+-   **Zero-CLS Architecture**: Eliminates layout shifts during data hydration using precision-weighted skeletal placeholders.
+-   **Premium "Bone" Design System**: A professional, minimal UI language that prioritizes clarity and speed.
 
 ### Offline-First Capability (PWA)
 -   Assets and critical data are cached locally, allowing field responders to operate during network outages.
