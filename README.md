@@ -221,6 +221,11 @@ Responders are required to upload a photographic record of the resolution. Furth
 -   Firebase Project with Firestore and Authentication initialized.
 -   Google AI Studio API Key (for Gemini 2.0 services).
 
+### 1.1 Local Configuration
+-   Copy [backend/.env.example](backend/.env.example) to [backend/.env](backend/.env) and fill in your backend values.
+-   Copy [frontend/.env.example](frontend/.env.example) to [frontend/.env](frontend/.env) and fill in your frontend values.
+-   Keep real secrets out of git; the example files are the tracked templates.
+
 ### 2. Implementation Workflow
 ```bash
 # Terminal 1: Intelligence Engine (Backend)

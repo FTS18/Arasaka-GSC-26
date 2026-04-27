@@ -11,6 +11,7 @@ import httpx
 import time
 import traceback
 import hashlib
+from contextlib import asynccontextmanager
 import os
 import logging
 import math
@@ -33,8 +34,8 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # ---------- Config ----------
-FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_WEB_API_KEY")
-FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID")
+FIREBASE_WEB_API_KEY = "AIzaSyAQ9gyREOKEPHdv67VY4R3TGAuXuVrDPj4"
+FIREBASE_PROJECT_ID = "janrakshak-28463"
 FIREBASE_SERVICE_ACCOUNT_FILE = os.environ.get("FIREBASE_SERVICE_ACCOUNT_FILE")
 FIREBASE_SERVICE_ACCOUNT_JSON = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
 AI_API_KEY = os.environ.get('AI_API_KEY')
@@ -615,32 +616,33 @@ class FirestoreDatabase:
 firestore_client = firestore.client()
 db = FirestoreDatabase(firestore_client)
 
-app = FastAPI(title="Humanitarian Command Center API")
-
-app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-@app.on_event("startup")
-async def startup_event():
-    # 🏛️ Load Previous Persistent Metrics
-    await load_usage_from_db()
-
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Boot-time initialization: hydrate usage counters, seed demo data, and start background tasks.
+    try:
+        await load_usage_from_db()
+        await seed_demo()
+        logger.info("Demo data ready.")
+    except Exception as e:
+        logger.exception(f"Seed failed: {e}")
     if TELEGRAM_BOT_TOKEN:
         if TELEGRAM_MODE == "polling":
-            # 🔄 Legacy Polling: Active for Local Development
             asyncio.create_task(run_bot(
-                TELEGRAM_BOT_TOKEN, db, ai_vision_extract, ai_insight, 
+                TELEGRAM_BOT_TOKEN, db, ai_vision_extract, ai_insight,
                 compute_priority, get_system_state, iso, now_utc
             ))
             logger.info("🚀 Telegram Polling Thread Active (Local Dev Mode)")
         else:
-            # 🛰️ Webhook Mode: Passive awaiting push from Telegram
             logger.info("🛰️ Telegram Webhook Mode Active (Production Ready)")
-            
-        # Start Periodic Usage Sync
         asyncio.create_task(usage_sync_loop())
         logger.info("Janrakshak API Booted.")
     else:
         logger.warning("⚠️ TELEGRAM_BOT_TOKEN missing. Bot integration disabled.")
+    yield
+
+
+app = FastAPI(title="Humanitarian Command Center API", lifespan=lifespan)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # 🚦 Live Traffic Management: Disaster-Aware Rate Limiting
 rate_limit_store = {}
@@ -650,21 +652,21 @@ rate_limit_store = {}
 async def disaster_aware_rate_limiter(request: Request, call_next):
     client_ip = request.client.host
     now = time.time()
-    
+
     # Reset window every minute
     state = await get_system_state()
     is_disaster = state.get("disaster_mode", False)
-    
+
     # 🕵️ Context-Aware Limits: Relaxed for local dashboard/admin usage
     is_local = client_ip in ["127.0.0.1", "::1", "localhost"]
     limit = 2000 if is_local else (150 if is_disaster and "/api/citizen" in request.url.path else 100)
-    
+
     hits = rate_limit_store.get(client_ip, [])
     hits = [h for h in hits if now - h < 60]
-    
+
     if len(hits) >= limit:
         return Response(content='{"error": "Too many requests. Priority given to emergency traffic."}', status_code=429, media_type="application/json")
-    
+
     hits.append(now)
     rate_limit_store[client_ip] = hits
     return await call_next(request)
@@ -677,6 +679,7 @@ async def add_process_time_header(request, call_next):
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = f"{process_time:.4f}s"
     return response
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -698,7 +701,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     err_id = str(uuid.uuid4())
     tb = traceback.format_exc()
     logger.error(f"FATAL [{err_id}]: {tb}")
-    
+
     # Log to Firestore for admin review
     try:
         await db.server_errors.insert_one({
@@ -709,7 +712,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             "timestamp": iso(now_utc())
         })
     except: pass
-    
+
     from fastapi.responses import JSONResponse
     resp = JSONResponse(
         content={"error": "Internal Systems Offline", "trace_id": err_id, "msg": str(exc)},
@@ -729,6 +732,7 @@ app.add_middleware(
         "http://127.0.0.1:3001",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        *[origin.strip() for origin in os.environ.get("CORS_ORIGINS", "").split(",") if origin.strip() and origin.strip() != "*"],
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -2853,7 +2857,6 @@ async def get_aggregated_stats(user=Depends(require_roles("admin"))):
 # Include router
 app.include_router(api_router)
 
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    return
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
