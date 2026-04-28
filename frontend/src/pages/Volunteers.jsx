@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { api } from "@/lib/api";
 import { Link } from "react-router-dom";
-import { User, IdentificationCard } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function VolunteersPage() {
   const [availability, setAvailability] = useState("");
@@ -44,21 +44,34 @@ export default function VolunteersPage() {
           <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Volunteers</h1>
         </div>
         <div className="flex gap-2">
-          <select className="tc-select max-w-xs" value={city} onChange={(e)=>setCity(e.target.value)} data-testid="filter-city">
-            <option value="">All Cities</option>
-            {cities.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select className="tc-select max-w-xs" value={availability} onChange={(e)=>setAvailability(e.target.value)} data-testid="filter-availability">
-            <option value="">All Status</option>
-            <option value="available">Available</option>
-            <option value="busy">Busy</option>
-          </select>
+          <Skeleton className="h-10 w-32 hidden md:block" />
+          <Skeleton className="h-10 w-32 hidden md:block" />
         </div>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
-          [...Array(6)].map((_, i) => <div key={i} className="tc-card h-48 animate-pulse bg-[var(--bone-alt)]" />)
+          [...Array(6)].map((_, i) => (
+            <div key={i} className="tc-card p-6 space-y-5 animate-pulse">
+               <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-3 w-40" />
+                  </div>
+                  <div className="text-right space-y-1">
+                    <Skeleton className="h-2 w-8 ml-auto" />
+                    <Skeleton className="h-8 w-12 ml-auto" />
+                  </div>
+               </div>
+               <div className="flex gap-2">
+                  {[...Array(3)].map((_, j) => <Skeleton key={j} className="h-6 w-12" />)}
+               </div>
+               <div className="flex justify-between mt-auto">
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-3 w-16" />
+               </div>
+            </div>
+          ))
         ) : vols.map(v => (
           <Link 
             key={v.id} 
@@ -73,7 +86,7 @@ export default function VolunteersPage() {
               </div>
               <div className="text-right">
                 <div className="tc-label">Trust</div>
-                <div className="font-mono font-bold text-2xl text-[var(--signal-red)]">{Math.round(v.trust_score)}</div>
+                <div className="font-mono font-bold text-2xl text-[var(--signal-red)]">{Math.round(v.trust_score || 0)}</div>
               </div>
             </div>
             <div className="mt-3 flex gap-1 flex-wrap">
@@ -83,7 +96,7 @@ export default function VolunteersPage() {
               <span className={`tc-badge ${v.availability === "available" ? "tc-badge-res" : v.availability === "busy" ? "tc-badge-high" : "tc-badge-outl"}`}>
                 {v.availability}
               </span>
-              <span className="font-mono text-[var(--ink-soft)]">{v.completed_missions} missions</span>
+              <span className="font-mono text-[var(--ink-soft)]">{(v.completed_missions || 0)} missions</span>
             </div>
           </Link>
         ))}

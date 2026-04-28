@@ -92,9 +92,9 @@ export default function LoginPage() {
         </div>
         <div className="grid grid-cols-3 gap-6 font-mono">
           {[
-            ["48H", "AVG RESPONSE"],
             ["AI", "PRIORITY ENGINE"],
             ["3", "PORTAL ROLES"],
+            ["PWA", "OFFLINE READY"],
           ].map(([v, l]) => (
             <div key={l}>
               <div className="text-2xl font-bold">{v}</div>

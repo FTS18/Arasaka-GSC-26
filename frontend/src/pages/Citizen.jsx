@@ -65,14 +65,21 @@ export default function CitizenPage() {
     setLoading(true);
     try {
       if (!navigator.onLine) {
-        offlineQueue.add("needs", form);
+        offlineQueue.add("citizen/reports", form);
         toast.info("No connection detected. Report saved offline.");
-        setSubmitted(true);
+        setSubmitted({ status: "offline" });
         return;
       }
-      await api.post("/needs", form);
-      setSubmitted(true);
-      toast.success("Need reported successfully");
+      const payload = {
+        raw_text: form.raw_text,
+        image_urls: form.image_urls ? form.image_urls.split(',').map(x => x.trim()).filter(Boolean) : [],
+        reporter_name: form.reporter_name,
+        reporter_phone: form.reporter_phone,
+        language: form.language
+      };
+      const r = await api.post("/citizen/reports", payload);
+      setSubmitted(r.data);
+      toast.success("Report received. AI triage started.");
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Submission failed");
     } finally {
@@ -143,8 +150,9 @@ export default function CitizenPage() {
           <div className="tc-card mt-8" data-testid="citizen-success">
             <div className="tc-label text-[var(--success)]">Received</div>
             <div className="font-heading font-bold text-xl mt-1">Thank you — your report is in the queue.</div>
-            <div className="tc-label">SOS Dispatch</div>
-            <pre className="text-sm font-mono whitespace-pre-wrap mt-2 text-[var(--ink-soft)]">{JSON.stringify(submitted.extracted, null, 2)}</pre>
+            {submitted?.report_id && (
+              <div className="tc-label">Report ID: {submitted.report_id}</div>
+            )}
             <button className="btn-ghost mt-6" onClick={() => { setSubmitted(null); setForm({ raw_text: "", image_urls: "", reporter_name: "", reporter_phone: "", language: "en" }); }}>File Another</button>
           </div>
         )}

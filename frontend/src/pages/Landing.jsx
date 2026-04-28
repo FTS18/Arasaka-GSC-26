@@ -1,10 +1,14 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Radio, ArrowRight, ShieldCheck, Gauge, MapTrifold, HandHeart } from "@phosphor-icons/react";
+import SEO from "@/components/SEO";
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+
   return (
-    <div className="min-h-screen bg-[var(--bone)] pb-24 md:pb-0">
+    <div className="min-h-screen bg-[var(--bone)] pb-24 md:pb-0 text-[var(--ink)] font-sans antialiased selection:bg-[var(--signal-red)] selection:text-white">
+      <SEO title="Tactical Humanitarian Response" description="Janrakshak is an AI-powered command center for disaster response and humanitarian coordination." />
       {/* Header */}
       <header className="border-b border-[var(--border)] bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">

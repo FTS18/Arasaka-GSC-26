@@ -1,22 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 import { useI18n } from "@/context/I18nContext";
 import { toast } from "sonner";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import SEO from "@/components/SEO";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const Spark = ({ color }) => {
-  const data = [...Array(12)].map((_, i) => ({ val: Math.floor(Math.random() * 20) + 10 }));
-  return (
-    <div className="tc-sparkline-container -mx-6 -mb-6 h-16 opacity-50">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
-          <Area type="monotone" dataKey="val" stroke={color} fill={color} fillOpacity={0.05} strokeWidth={1} isAnimationActive={false} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
+// Fixed seed — no shaking on re-render
+const SPARK_SEED = [...Array(12)].map((_, i) => ({ val: [18,22,15,28,12,25,20,30,17,24,19,26][i] }));
+const Spark = ({ color }) => (
+  <div className="tc-sparkline-container -mx-6 -mb-6 h-16 opacity-50">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={SPARK_SEED}>
+        <Area type="monotone" dataKey="val" stroke={color} fill={color} fillOpacity={0.05} strokeWidth={1} isAnimationActive={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+);
 
 const Stat = ({ label, value, variant, icon: Icon }) => (
   <div className="tc-card overflow-hidden relative group hover:border-[var(--signal-red)] transition-colors">
@@ -31,7 +33,8 @@ const Stat = ({ label, value, variant, icon: Icon }) => (
 
 const StepAction = ({ status }) => {
   const steps = ["pending", "assigned", "in_progress", "completed"];
-  const currentIdx = steps.indexOf(status);
+  const isCancelled = status === "cancelled";
+  const currentIdx = isCancelled ? -1 : steps.indexOf(status);
   
   return (
     <div className="flex items-center gap-1 mt-3">
@@ -39,6 +42,7 @@ const StepAction = ({ status }) => {
         <React.Fragment key={s}>
           <div 
             className={`h-1.5 flex-1 rounded-full ${
+              isCancelled ? "bg-gray-300 opacity-50" :
               idx <= currentIdx 
                 ? s === "completed" ? "bg-green-500" : "bg-[var(--signal-red)]" 
                 : "bg-[var(--border)]"
@@ -59,13 +63,13 @@ export default function UserDashboardPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [allNeeds, dashboardStats] = await Promise.all([
-          api.get("/needs?limit=300"),
+        const [allNeeds, dashboardStats, bulletinNeeds] = await Promise.all([
+          api.get(`/needs?created_by=${user?.id}`),
           api.get("/dashboard/stats"),
+          api.get("/needs?limit=3&status=pending"),
         ]);
-        const mine = (allNeeds.data || []).filter((n) => n.created_by === user?.id);
-        setMyNeeds(mine);
-        setStats(dashboardStats.data || null);
+        setMyNeeds(allNeeds.data || []);
+        setStats({ ...(dashboardStats.data || null), bulletin: bulletinNeeds.data || [] });
       } catch {
         toast.error("Failed to load user dashboard");
       }
@@ -79,10 +83,75 @@ export default function UserDashboardPage() {
   const pendingCount = useMemo(() => myNeeds.filter((n) => ["pending", "assigned", "in_progress"].includes(n.status)).length, [myNeeds]);
   const completedCount = useMemo(() => myNeeds.filter((n) => n.status === "completed").length, [myNeeds]);
 
-  if (!stats) return <div className="p-8 font-mono text-xs uppercase tracking-widest animate-pulse">Loading community data...</div>;
+  if (!stats) return (
+    <div className="p-4 md:p-8 space-y-12 animate-pulse">
+      {/* Hero Skeleton */}
+      <div className="relative overflow-hidden bg-[var(--bone-alt)] p-8 md:p-12 border-2 border-[var(--border)] rounded-sm min-h-[300px] flex flex-col justify-center">
+        <div className="space-y-4 max-w-3xl">
+          <Skeleton className="h-16 w-3/4" />
+          <Skeleton className="h-16 w-1/2" />
+          <div className="flex gap-4 pt-4">
+            <Skeleton className="h-14 w-40" />
+            <Skeleton className="h-14 w-40" />
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="tc-card p-6 min-h-[140px] flex flex-col justify-between">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-12 w-16" />
+            <div className="h-1 w-full bg-[var(--bone-alt)]" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Active Requests Skeletons */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="flex justify-between">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-8 w-32" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="tc-card p-4 space-y-4">
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-3 w-12" />
+                </div>
+                <Skeleton className="h-6 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Community Bulletin Skeletons (Resource Availability) */}
+        <div className="lg:col-span-4 space-y-6">
+          <Skeleton className="h-8 w-40" />
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="tc-card p-4 space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-2 w-1/2" />
+                <div className="flex gap-2">
+                   <Skeleton className="h-6 w-12" />
+                   <Skeleton className="h-6 w-12" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-4 md:p-8 space-y-8 max-w-full overflow-x-hidden" data-testid="user-dashboard-page">
+      <SEO title={t("dashboard")} description="Citizen portal for reporting critical needs and tracking relief efforts." />
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-[var(--ink)] text-[var(--bone)] p-8 md:p-12 rounded-sm" role="banner">
         <div className="relative z-10 max-w-3xl">
@@ -96,9 +165,9 @@ export default function UserDashboardPage() {
             <Link to="/needs/new" className="btn-primary py-4 px-8 text-lg font-black tracking-tighter" aria-label={t("help_request")}>
               + {t("i_need_help") || "I NEED HELP NOW"}
             </Link>
-            <button className="btn-hard border-[var(--ink-soft)] text-white hover:bg-white/10 py-4 px-8 text-lg font-bold" aria-label={t("view_safety_zones")}>
+            <Link to="/map" className="btn-hard border-[var(--ink-soft)] text-white hover:bg-white/10 py-4 px-8 text-lg font-bold" aria-label={t("view_safety_zones")}>
                {t("safety_zones") || "VIEW SAFETY ZONES"}
-            </button>
+            </Link>
           </div>
         </div>
         {/* Abstract background elements */}
@@ -120,7 +189,7 @@ export default function UserDashboardPage() {
         {/* Active Requests */}
         <div className="lg:col-span-8 space-y-6 min-w-0" role="region" aria-labelledby="active-req-heading">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading text-2xl font-black tracking-tight" id="active-req-heading">{t("active_needs")}</h2>
+            <h2 className="font-heading text-2xl font-black tracking-tight" id="active-req-heading">{t("tracker_my_requests")}</h2>
             <Link to="/needs" className="tc-label hover:text-[var(--signal-red)] transition-colors">{t("history_view")} →</Link>
           </div>
           
@@ -152,25 +221,31 @@ export default function UserDashboardPage() {
           </div>
         </div>
 
-        {/* Safety Bulletin */}
+        {/* Safety Bulletin — Live from Firestore */}
         <div className="md:col-span-4 space-y-6">
-          <h2 className="font-heading text-2xl font-black tracking-tight">Safety Bulletin</h2>
-          <div className="tc-card bg-[var(--bone-alt)] divide-y divide-[var(--border)] p-0">
-            <div className="p-4">
-              <div className="tc-label text-[var(--signal-red)] font-bold mb-1">STORM ALERT</div>
-              <div className="text-sm font-bold">Heavy rain expected in East District within 2 hours. Seek shelter.</div>
-              <div className="text-[10px] font-mono text-[var(--ink-muted)] mt-2">UPDATED 10:45</div>
-            </div>
-            <div className="p-4">
-              <div className="tc-label mb-1">RELIEF UPDATE</div>
-              <div className="text-sm">Clean water distribution active at Central Hub. Bring containers.</div>
-              <div className="text-[10px] font-mono text-[var(--ink-muted)] mt-2">UPDATED 09:12 Z</div>
-            </div>
-            <div className="p-4">
-              <div className="tc-label mb-1">RESOURCE NOTICE</div>
-              <div className="text-sm">Medical team arriving at District 4 community center tomorrow morning.</div>
-              <div className="text-[10px] font-mono text-[var(--ink-muted)] mt-2">UPDATED 08:00</div>
-            </div>
+          <div className="flex items-center justify-between">
+            <h2 className="font-heading text-2xl font-black tracking-tight">{t("live_status_bulletin")}</h2>
+            <div className="tc-badge tc-badge-outl opacity-60 uppercase">{t("active_field_ops")}</div>
+          </div>
+          <div className="tc-card bg-[var(--bone-alt)] divide-y divide-[var(--border)] p-0 overflow-hidden border-2 border-[var(--border)]">
+            {(stats?.bulletin || []).length > 0 ? (
+              (stats?.bulletin).map((n) => (
+                <Link to={`/needs/${n.id}`} key={n.id} className="block p-4 hover:bg-[var(--bone)] transition-colors group">
+                  <div className={`tc-label font-bold mb-1 ${n.urgency >= 4 ? 'text-[var(--signal-red)]' : ''}`}>
+                    {n.urgency >= 4 ? 'URGENT · ' : ''}{(n.category || 'other').replace(/_/g, ' ').toUpperCase()}
+                  </div>
+                  <div className="text-sm font-black truncate group-hover:text-[var(--signal-red)]">{n.title}</div>
+                  <div className="text-[10px] font-mono text-[var(--ink-muted)] mt-1 uppercase tracking-wider">
+                    {n.people_affected} IMPACTED · {new Date(n.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="p-8 flex flex-col items-center justify-center text-[var(--ink-muted)] opacity-50 space-y-3">
+                <Broadcast size={32} weight="thin" />
+                <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-center">No active field alerts</div>
+              </div>
+            )}
           </div>
         </div>
       </div>

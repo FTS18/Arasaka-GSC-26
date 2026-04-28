@@ -130,6 +130,16 @@
       "language": "en",
       "onboarded": true,
       "created_at": "2026-04-28T09:58:36.204154+00:00"
+    },
+    {
+      "id": "mq3ISUU2uYXdw6ZKuLREFPTQeLM2",
+      "name": "Field Volunteer",
+      "email": "volunteer@janrakshakops.com",
+      "role": "volunteer",
+      "phone": "23456789",
+      "language": "en",
+      "onboarded": true,
+      "created_at": "2026-04-28T10:05:45.844154+00:00"
     }
   ],
   "volunteers": [
@@ -1493,6 +1503,30 @@
       "completed_missions": 8,
       "response_speed_min": 30,
       "created_at": "2026-04-28T09:51:28.292211+00:00"
+    },
+    {
+      "id": "b089ede3-bad0-428c-81ec-036616210433",
+      "user_id": "mq3ISUU2uYXdw6ZKuLREFPTQeLM2",
+      "name": "Field Volunteer",
+      "skills": [
+        "rtyhvcdrty"
+      ],
+      "languages": [
+        "en"
+      ],
+      "availability": "available",
+      "working_radius_km": 10,
+      "transport": "none",
+      "certifications": [],
+      "base_location": {
+        "lat": 19.076,
+        "lng": 72.877,
+        "address": null
+      },
+      "trust_score": 80.0,
+      "completed_missions": 0,
+      "response_speed_min": 30,
+      "created_at": "2026-04-28T10:20:49.308541+00:00"
     }
   ],
   "audit_logs": [

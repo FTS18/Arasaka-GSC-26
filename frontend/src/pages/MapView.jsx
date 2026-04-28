@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.heat";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import SEO from "@/components/SEO";
 
 function HeatmapLayer({ points }) {
   const map = useMap();
@@ -75,6 +76,7 @@ export default function MapView() {
 
   return (
     <div className="p-4 md:p-8 space-y-4 h-[calc(100vh-80px)] flex flex-col" data-testid="map-page">
+      <SEO title="Operational Map" description="Real-time geospatial tracking of needs, resources, and relief missions." />
       <div className="hidden md:block">
         <div className="tc-label">Location Data</div>
         <h1 className="font-heading text-4xl font-black tracking-tighter mt-1">Operations Map</h1>

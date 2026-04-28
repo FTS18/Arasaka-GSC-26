@@ -1,7 +1,8 @@
-const CACHE_NAME = 'janrakshak-v1';
+const CACHE_NAME = 'janrakshak-v2';
 const OFFLINE_URL = '/offline.html';
 
 // 🏛️ Strategy 3: PWA Offline Intelligence
+// tactical_fallback_db.json serves as the local data backbone when Firestore quota is exhausted or offline
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -10,6 +11,15 @@ const ASSETS_TO_CACHE = [
     '/static/css/main.css',
     '/logo.png',
     OFFLINE_URL
+];
+
+// API responses that should be cached for offline access
+const API_CACHE_ROUTES = [
+    '/api/needs/markers',
+    '/api/needs?limit=10',
+    '/api/resources',
+    '/api/dashboard/stats',
+    '/api/analytics/overview',
 ];
 
 self.addEventListener('install', (event) => {
@@ -42,11 +52,13 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             fetch(event.request)
                 .then((response) => {
-                    // Clone and cache the API response for offline view
-                    const resClone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, resClone);
-                    });
+                    // 🏛️ Strategy: Only cache GET requests
+                    if (event.request.method === 'GET' && response.status === 200) {
+                        const resClone = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, resClone);
+                        });
+                    }
                     return response;
                 })
                 .catch(() => caches.match(event.request)) // Fallback to stale data if offline

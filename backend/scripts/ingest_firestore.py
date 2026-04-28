@@ -58,6 +58,9 @@ def ensure_auth_user(email: str, password: str, display_name: str, role: str) ->
     return uid
 
 
+PUBLIC_ORG = "public"
+
+
 def upsert_user(users_col, uid: str, name: str, email: str, role: str, language: str = "en"):
     users_col.document(uid).set(
         {
@@ -65,8 +68,10 @@ def upsert_user(users_col, uid: str, name: str, email: str, role: str, language:
             "name": name,
             "email": email,
             "role": role,
+            "org_id": PUBLIC_ORG,
             "phone": None,
             "language": language,
+            "onboarded": True,
             "created_at": now_iso(),
         },
         merge=True,
@@ -108,6 +113,7 @@ def seed_resources(db):
                 "unit": "units",
                 "min_threshold": item["min_threshold"],
                 "warehouse": item["warehouse"],
+                "org_id": PUBLIC_ORG,
                 "location": {"lat": item["lat"], "lng": item["lng"], "address": None},
                 "updated_at": now_iso(),
             },
@@ -144,6 +150,7 @@ def seed_needs(db):
                 "weather_factor": 1,
                 "source": "admin",
                 "evidence_urls": [],
+                "org_id": PUBLIC_ORG,
                 "status": "pending",
                 "priority_score": float(item["urgency"]) * 20.0,
                 "created_by": None,
@@ -183,6 +190,7 @@ def seed_auth_and_profiles(db) -> List[Dict[str, str]]:
             "id": volunteer_uid,
             "user_id": volunteer_uid,
             "name": "Field Volunteer",
+            "org_id": PUBLIC_ORG,
             "skills": ["first_aid", "logistics", "hindi"],
             "languages": ["en", "hi"],
             "availability": "available",
@@ -215,6 +223,7 @@ def seed_auth_and_profiles(db) -> List[Dict[str, str]]:
                 "id": uid,
                 "user_id": uid,
                 "name": v["name"],
+                "org_id": PUBLIC_ORG,
                 "skills": v["skills"],
                 "languages": ["en", "hi"],
                 "availability": "available",
@@ -233,6 +242,78 @@ def seed_auth_and_profiles(db) -> List[Dict[str, str]]:
     return demo_credentials
 
 
+def seed_missions(db, seeded_users: dict):
+    """
+    Seed 3 realistic demo missions that reference seeded need IDs.
+    Statuses: active (judges see it live), planned, completed.
+    """
+    volunteer_uid = seeded_users.get("volunteer@janrakshakops.com", "")
+
+    missions = [
+        {
+            "id": "mission_flood_response_alpha",
+            "need_ids": ["flood_relief___40_families_stranded", "shelter_for_displaced"],
+            "volunteer_ids": [volunteer_uid] if volunteer_uid else [],
+            "org_id": PUBLIC_ORG,
+            "status": "active",
+            "route": [
+                {"lat": 28.6508, "lng": 77.3152, "address": "East Delhi Flood Zone"},
+                {"lat": 28.6500, "lng": 77.2500, "address": "Displaced Families Camp"},
+            ],
+            "resource_allocations": [
+                {"resource_id": "food_packets_ready_to_eat_", "quantity": 80},
+                {"resource_id": "blankets", "quantity": 30},
+            ],
+            "proof_urls": [],
+            "completion_notes": None,
+            "created_at": now_iso(),
+            "completed_at": None,
+        },
+        {
+            "id": "mission_medical_supply_bravo",
+            "need_ids": ["medicine_shortage_at_shelter", "blood___o_negative_urgent"],
+            "volunteer_ids": [],
+            "org_id": PUBLIC_ORG,
+            "status": "planned",
+            "route": [
+                {"lat": 28.5355, "lng": 77.3910, "address": "Community Shelter"},
+                {"lat": 28.5672, "lng": 77.2100, "address": "AIIMS Blood Bank"},
+            ],
+            "resource_allocations": [
+                {"resource_id": "medicine_kit_basic_", "quantity": 15},
+                {"resource_id": "oxygen_cylinders", "quantity": 2},
+            ],
+            "proof_urls": [],
+            "completion_notes": None,
+            "created_at": now_iso(),
+            "completed_at": None,
+        },
+        {
+            "id": "mission_food_distribution_charlie",
+            "need_ids": ["food_packets_for_street_children"],
+            "volunteer_ids": [],
+            "org_id": PUBLIC_ORG,
+            "status": "completed",
+            "route": [
+                {"lat": 28.6139, "lng": 77.2090, "address": "Delhi Central Depot"},
+                {"lat": 28.6139, "lng": 77.2090, "address": "Night Shelter — Connaught Place"},
+            ],
+            "resource_allocations": [
+                {"resource_id": "food_packets_ready_to_eat_", "quantity": 30},
+            ],
+            "proof_urls": [],
+            "completion_notes": "30 meal kits distributed to night shelter. All 30 children fed. Mission closed 22:15 IST.",
+            "created_at": now_iso(),
+            "completed_at": now_iso(),
+        },
+    ]
+
+    col = db.collection("missions")
+    for m in missions:
+        col.document(m["id"]).set(m, merge=True)
+    print(f"  ✓ {len(missions)} missions seeded.")
+
+
 def main():
     init_firebase()
     db = firestore.client()
@@ -241,6 +322,17 @@ def main():
     credentials_seeded = seed_auth_and_profiles(db)
     seed_needs(db)
     seed_resources(db)
+
+    # Build a uid lookup for missions
+    seeded_uids = {}
+    for cred in credentials_seeded:
+        try:
+            from firebase_admin import auth as fb_auth
+            rec = fb_auth.get_user_by_email(cred["email"])
+            seeded_uids[cred["email"]] = rec.uid
+        except Exception:
+            pass
+    seed_missions(db, seeded_uids)
 
     print("Seed completed.")
     print("Frontend login credentials:")

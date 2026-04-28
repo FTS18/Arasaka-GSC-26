@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 import { offlineQueue } from "@/lib/offlineQueue";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { MapPin } from "@phosphor-icons/react";
 
 const CATS = [
   "food","medical","shelter","education","sanitation","blood_donation","disaster_relief","emergency_transport","other"
@@ -66,10 +67,41 @@ export default function NewNeedPage() {
           <label className="tc-label">Description</label>
           <textarea rows="4" className="tc-textarea" value={form.description} onChange={(e)=>upd("description", e.target.value)} required data-testid="need-description" />
         </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          <div><label className="tc-label">Latitude</label><input className="tc-input" value={form.lat} onChange={(e)=>upd("lat", e.target.value)} data-testid="need-lat" /></div>
-          <div><label className="tc-label">Longitude</label><input className="tc-input" value={form.lng} onChange={(e)=>upd("lng", e.target.value)} data-testid="need-lng" /></div>
-          <div><label className="tc-label">Address</label><input className="tc-input" value={form.address} onChange={(e)=>upd("address", e.target.value)} data-testid="need-address" /></div>
+        <div>
+          <label className="tc-label flex items-center gap-1"><MapPin size={14}/> Location</label>
+          <div className="flex gap-2">
+            <input 
+              className="tc-input flex-1" 
+              placeholder="Address or area (e.g. Dharavi, Mumbai)" 
+              value={form.address} 
+              onChange={(e) => upd("address", e.target.value)}
+              data-testid="need-address"
+            />
+            <button
+              type="button"
+              className="btn-ghost border-2 border-[var(--ink)] px-4 flex items-center gap-1 text-xs font-black whitespace-nowrap"
+              onClick={() => {
+                if (!navigator.geolocation) { toast.error("GPS not supported"); return; }
+                const t = toast.loading("Getting your location...");
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    upd("lat", pos.coords.latitude);
+                    upd("lng", pos.coords.longitude);
+                    upd("address", `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+                    toast.success("Location captured", { id: t });
+                  },
+                  () => toast.error("GPS denied", { id: t })
+                );
+              }}
+            >
+              <MapPin size={14} weight="fill" /> Locate Me
+            </button>
+          </div>
+          {(form.lat !== 28.6139 || form.lng !== 77.2090) && (
+            <div className="text-[10px] font-mono text-[var(--ink-soft)] mt-1">
+              ✓ {Number(form.lat).toFixed(4)}, {Number(form.lng).toFixed(4)}
+            </div>
+          )}
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           <div>
@@ -105,7 +137,7 @@ export default function NewNeedPage() {
         </div>
         <div>
           <label className="tc-label">Evidence URLs (comma separated)</label>
-          <input className="tc-input" placeholder="https://..." onChange={(e)=>upd("evidence_urls", e.target.value.split(",").map(s=>s.trim()).filter(Boolean))} data-testid="need-evidence" />
+          <input className="tc-input" placeholder="https://..." onChange={(e)=>upd("evidence_urls", e.target.value.split(",").map(s=>s.trim()).filter(s => s.startsWith("http")))} data-testid="need-evidence" />
         </div>
         <button className="btn-primary" disabled={loading} data-testid="need-submit">
           {loading ? "FILING..." : "FILE REQUEST"}

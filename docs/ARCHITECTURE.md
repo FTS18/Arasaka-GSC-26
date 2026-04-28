@@ -7,9 +7,9 @@ Janrakshak is architected as a high-performance, real-time humanitarian coordina
 
 ## 1. High-Level System Workflow
 The operational flow of Janrakshak follows a four-stage tactical pipeline:
-1.  **Ingestion**: Capture of data via structured web forms or AI-powered OCR of physical surveys.
-2.  **Intel Processing**: Asynchronous prioritization and categorization using the Janrakshak Priority Metric (JPM) and Gemini 2.0.
-3.  **Command & Dispatch**: Visual triage via the Live Map and automated matching based on proximity and skill-stack.
+1.  **Ingestion**: Capture of data via structured web forms, AI-powered OCR of physical surveys, or Voice SITREPs.
+2.  **Intel Processing**: Asynchronous prioritization and categorization using the Janrakshak Priority Metric (JPM) and Gemini 2.5 Flash.
+3.  **Command & Dispatch**: Visual triage via the India-Wide Live Map and automated matching based on proximity and skill-stack.
 4.  **Field Resolution**: Mobile-optimized mission execution for volunteers with real-time status telemetry back to the dashboard.
 
 ---
@@ -20,8 +20,9 @@ The operational flow of Janrakshak follows a four-stage tactical pipeline:
 -   **Distributed Document Store**: Highly available, low-latency document database.
 -   **Real-time Synchronization**: Field operatives receive updates instantly via Firestore listeners.
 -   **Projection Optimization**: The API implements field-limited projections to ensure sub-100ms response times on restricted humanitarian networks.
--   **Zero-Read Strategy**: Implemented "Atomic Aggregates" where dashboard counts are pre-calculated and stored in a `global_stats` document. This reduces collection-wide count reads from $O(N)$ to $O(1)$.
--   **Tactical Fallback (Quota Resilience)**: Integrated a local JSON-based persistence layer (`tactical_fallback_db.json`) that automates data restoration if cloud quotas are exhausted.
+-   **Zero-Read Strategy (Atomic Aggregates)**: A synchronization engine that maintains a single `global_stats` document containing pre-calculated tallies for all incident categories. This allows the high-traffic Admin Dashboard to refresh in $O(1)$ time without performing expensive collection-wide counts, ensuring 100% quota resilience.
+-   **Tactical Fallback (Hybrid Persistence)**: Integrated a local JSON persistence layer (`tactical_fallback_db.json`) that automates data restoration if cloud quotas are exhausted.
+-   **Handshake Protocol (Deep-Links)**: A cross-platform state-transfer mechanism that allows users to transition from the Telegram Bot to the Web Tactical Modal with an encrypted JWT payload, preserving their session context.
 
 ### Identity Management (Firebase Auth)
 -   **JWT Stateless Authentication**: Secure token-based access for all operational nodes.
@@ -46,11 +47,11 @@ The backend is built for extreme throughput and low latency:
 
 The interface is designed for high-stakes operational use:
 -   **Progressive Web Application (PWA)**: Hardened with Service Workers and manifest-based caching to ensure situational awareness even in low-connectivity zones.
--   **Tactical Brutalist Design System**: A custom-built, high-contrast UI component library optimized for legibility under physical strain and varying light conditions.
--   **Skeleton UI Pattern**: Consistent use of skeleton loading states to eliminate Layout Shift (CLS) and provide immediate perceived responsiveness.
+-   **Professional "Bone" Palette Design**: A refined, minimal UI component library optimized for legibility under physical strain and varying light conditions.
+-   **Zero-CLS Skeleton Pattern**: High-fidelity skeleton loading states that resolve layout shifts, providing a stable, premium experience during heavy data hydration.
+-   **Aggregated India-Wide View**: Optimized geospatial logic that clusters and renders markers at scale, supporting thousands of incident points across the national map.
 -   **Multi-Stage Bundle Fetching**: Frontend logic that checks LocalStorage before hitting the API, ensuring rapid state restoration and zero unnecessary network turns.
 -   **Eventual Consistency Protocol**: A service-worker-led synchronization model that queues offline actions (Mission Completion/Reporting) and executes them atomically when connectivity is restored.
--   **Low-Power Design Standards**: CSS-driven UI optimization that minimizes browser repaint cycles and GPU draw to preserve battery life on field devices.
 
 ---
 
@@ -69,4 +70,4 @@ The interface is designed for high-stakes operational use:
 -   **HTTPS/SSL Hardware**: Ensuring all telemetry remains encrypted between field nodes and the command center.
 
 ---
-*Technical Architecture v2.8.0 - Tactical Ready*
+*Technical Architecture v2.8.5 - Production Hardened*
