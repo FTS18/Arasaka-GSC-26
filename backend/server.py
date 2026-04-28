@@ -11,7 +11,6 @@ import httpx
 import time
 import traceback
 import hashlib
-from contextlib import asynccontextmanager
 import os
 import logging
 import math
@@ -34,8 +33,8 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # ---------- Config ----------
-FIREBASE_WEB_API_KEY = "AIzaSyAQ9gyREOKEPHdv67VY4R3TGAuXuVrDPj4"
-FIREBASE_PROJECT_ID = "janrakshak-28463"
+FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_WEB_API_KEY")
+FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID")
 FIREBASE_SERVICE_ACCOUNT_FILE = os.environ.get("FIREBASE_SERVICE_ACCOUNT_FILE")
 FIREBASE_SERVICE_ACCOUNT_JSON = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
 AI_API_KEY = os.environ.get('AI_API_KEY')
@@ -241,30 +240,24 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
         try:
             fb_user = await asyncio.to_thread(firebase_auth.get_user, uid)
             role = payload.get("role") or payload.get("claims", {}).get("role") or "user"
-            display_name = fb_user.display_name or (fb_user.email.split("@")[0] if fb_user.email else "User")
-            email = fb_user.email
-        except Exception as e:
-            logger.warning(f"Tactical Auth fallback in get_current_user for {uid}: {e}")
-            role = payload.get("role") or payload.get("claims", {}).get("role") or "user"
-            email = payload.get("email", f"{uid}@tactical.local")
-            display_name = payload.get("name", email.split("@")[0])
-
-        user = User(
-            id=uid,
-            name=display_name,
-            email=email,
-            role=role,
-            org_id=_infer_org_id(email),
-            onboarded=(role == "admin") # 🏛️ Admins auto-skip tactical onboarding
-        ).model_dump()
-        await db.users.insert_one(user)
+            user = User(
+                id=uid,
+                name=fb_user.display_name or (fb_user.email.split("@")[0] if fb_user.email else "User"),
+                email=fb_user.email,
+                role=role,
+                org_id=_infer_org_id(fb_user.email),
+                onboarded=(role == "admin") # 🏛️ Admins auto-skip tactical onboarding
+            ).model_dump()
+            await db.users.insert_one(user)
+        except Exception:
+            raise HTTPException(status_code=401, detail="Tactical Auth Failure: Record not found.")
 
     # Always re-infer org_id from email to fix any stale values (e.g., old "janrakshakops-com" values)
     correct_org_id = _infer_org_id(user.get("email"))
     if user.get("org_id") != correct_org_id:
         user["org_id"] = correct_org_id
         await db.users.update_one({"id": user["id"]}, {"$set": {"org_id": correct_org_id}})
-
+            
     return user
 
 
@@ -561,7 +554,7 @@ class FirestoreCollection:
             # Each document read counts as 1 read in Firestore
             for d in docs: _USAGE_MONITOR["reads"] += 1
             return [d.to_dict() for d in docs if d.exists]
-        except (google_exceptions.ResourceExhausted, google_exceptions.PermissionDenied):
+        except google_exceptions.ResourceExhausted:
             db_local = _load_local_db()
             return db_local.get(self._collection.id, [])
 
@@ -580,8 +573,8 @@ class FirestoreCollection:
 
             docs = await self.find(query, projection).limit(1).to_list(length=1)
             return docs[0] if docs else None
-        except (google_exceptions.ResourceExhausted, google_exceptions.PermissionDenied):
-            logger.warning(f"🚨 Remote Access Denied. Falling back to Local Intelligence for {self._collection.id}")
+        except google_exceptions.ResourceExhausted:
+            logger.warning(f"🚨 Quota Exhausted. Falling back to Local Intelligence for {self._collection.id}")
             db_local = _load_local_db()
             coll = db_local.get(self._collection.id, [])
             for doc in coll:
@@ -784,37 +777,38 @@ class FirestoreDatabase:
 firestore_client = firestore.client()
 db = FirestoreDatabase(firestore_client)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+app = FastAPI(title="Humanitarian Command Center API")
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+@app.on_event("startup")
+async def startup_event():
     await TASK_QUEUE.start()
-    try:
-        validate_env()
-        await load_usage_from_db()
-        await seed_demo()
-        logger.info("Demo data ready.")
-    except Exception as e:
-        logger.exception(f"Seed failed: {e}")
+    # 🏛️ Load Previous Persistent Metrics
+    await load_usage_from_db()
+
     if TELEGRAM_BOT_TOKEN:
         if TELEGRAM_MODE == "polling":
+            # 🔄 Legacy Polling: Active for Local Development
             asyncio.create_task(run_bot(
-                TELEGRAM_BOT_TOKEN, db, ai_vision_extract, ai_insight,
+                TELEGRAM_BOT_TOKEN, db, ai_vision_extract, ai_insight, 
                 compute_priority, get_system_state, iso, now_utc
             ))
             logger.info("🚀 Telegram Polling Thread Active (Local Dev Mode)")
         else:
+            # 🛰️ Webhook Mode: Passive awaiting push from Telegram
             logger.info("🛰️ Telegram Webhook Mode Active (Production Ready)")
+            
+        # Start Periodic Usage Sync
         asyncio.create_task(usage_sync_loop())
         logger.info("Janrakshak API Booted.")
     else:
         logger.warning("⚠️ TELEGRAM_BOT_TOKEN missing. Bot integration disabled.")
-    try:
-        yield
-    finally:
-        await TASK_QUEUE.stop()
 
 
-app = FastAPI(title="Humanitarian Command Center API", lifespan=lifespan)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+@app.on_event("shutdown")
+async def shutdown_event():
+    await TASK_QUEUE.stop()
 
 # 🚦 Live Traffic Management: Disaster-Aware Rate Limiting
 rate_limit_store = {}
@@ -824,21 +818,21 @@ rate_limit_store = {}
 async def disaster_aware_rate_limiter(request: Request, call_next):
     client_ip = request.client.host
     now = time.time()
-
+    
     # Reset window every minute
     state = await get_system_state()
     is_disaster = state.get("disaster_mode", False)
-
+    
     # 🕵️ Context-Aware Limits: Relaxed for local dashboard/admin usage
     is_local = client_ip in ["127.0.0.1", "::1", "localhost"]
     limit = 2000 if is_local else (150 if is_disaster and "/api/citizen" in request.url.path else 100)
-
+    
     hits = rate_limit_store.get(client_ip, [])
     hits = [h for h in hits if now - h < 60]
-
+    
     if len(hits) >= limit:
         return Response(content='{"error": "Too many requests. Priority given to emergency traffic."}', status_code=429, media_type="application/json")
-
+    
     hits.append(now)
     rate_limit_store[client_ip] = hits
     return await call_next(request)
@@ -851,7 +845,6 @@ async def add_process_time_header(request, call_next):
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = f"{process_time:.4f}s"
     return response
-
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -873,7 +866,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     err_id = str(uuid.uuid4())
     tb = traceback.format_exc()
     logger.error(f"FATAL [{err_id}]: {tb}")
-
+    
     # Log to Firestore for admin review
     try:
         await db.server_errors.insert_one({
@@ -884,7 +877,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             "timestamp": iso(now_utc())
         })
     except: pass
-
+    
     from fastapi.responses import JSONResponse
     resp = JSONResponse(
         content={"error": "Internal Systems Offline", "trace_id": err_id, "msg": str(exc)},
@@ -899,11 +892,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
         "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    *[origin.strip() for origin in os.environ.get("CORS_ORIGINS", "").split(",") if origin.strip() and origin.strip() != "*"],
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -1285,25 +1277,17 @@ async def ensure_firebase_user(email: str, password: str, display_name: str, rol
             disabled=False,
         )
         uid = user_record.uid
-        await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": role})
-        return uid
     except firebase_auth.UserNotFoundError:
-        try:
-            user_record = await asyncio.to_thread(
-                firebase_auth.create_user,
-                email=email,
-                password=password,
-                display_name=display_name,
-            )
-            uid = user_record.uid
-            await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": role})
-            return uid
-        except Exception as e:
-            logger.warning(f"🚨 Firebase User Creation failed: {str(e)}. Generating deterministic tactical ID.")
-            return hashlib.md5(email.encode()).hexdigest()
-    except Exception as e:
-        logger.warning(f"🚨 Firebase Ops failed: {str(e)}. Using tactical fallback ID.")
-        return hashlib.md5(email.encode()).hexdigest()
+        user_record = await asyncio.to_thread(
+            firebase_auth.create_user,
+            email=email,
+            password=password,
+            display_name=display_name,
+        )
+        uid = user_record.uid
+
+    await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": role})
+    return uid
 
 
 
@@ -1658,11 +1642,8 @@ async def register(body: RegisterBody):
         status_code=400,
     )
     uid = sign_up["localId"]
-    try:
-        await asyncio.to_thread(firebase_auth.update_user, uid, display_name=body.name)
-        await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": body.role})
-    except Exception as e:
-        logger.warning(f"Skipping Firebase Admin SDK sync for {uid} due to lack of IAM permissions: {e}")
+    await asyncio.to_thread(firebase_auth.update_user, uid, display_name=body.name)
+    await asyncio.to_thread(firebase_auth.set_custom_user_claims, uid, {"role": body.role})
 
     org_id = body.org_id or _infer_org_id(body.email)
     user = User(id=uid, name=body.name, email=body.email, role=body.role, org_id=org_id, phone=body.phone, language=body.language)
@@ -1681,24 +1662,6 @@ async def register(body: RegisterBody):
 
 @api_router.post("/auth/login")
 async def login(body: LoginBody):
-    # 🏛️ Tactical Bypass: Check local database for demo credentials first
-    # This allows demo access even if Firebase Cloud is unreachable/forbidden
-    local_user = await db.users.find_one({"email": body.email}, {"_id": 0})
-    
-    # Simple tactical password check (In a real app, use bcrypt, but this is a demo bypass)
-    is_demo = body.email in ["user@janrakshakops.com", "volunteer@janrakshakops.com", "admin@janrakshakops.com"]
-    
-    if is_demo and local_user:
-        # Generate a tactical JWT for local session
-        tactical_token = jwt.encode({
-            "uid": local_user["id"],
-            "role": local_user["role"],
-            "exp": datetime.now(timezone.utc) + timedelta(days=7)
-        }, JWT_SECRET, algorithm=JWT_ALGORITHM)
-        
-        return {"token": tactical_token, "user": local_user}
-
-    # If not a demo user or local check failed, proceed to Firebase
     sign_in = await _firebase_rest_auth(
         "accounts:signInWithPassword",
         {"email": body.email, "password": body.password, "returnSecureToken": True},
@@ -1708,22 +1671,16 @@ async def login(body: LoginBody):
     uid = sign_in["localId"]
     u = await db.users.find_one({"id": uid}, {"_id": 0})
     if not u:
+        fb_user = await asyncio.to_thread(firebase_auth.get_user, uid)
         role = "user"
-        name = "User"
-        email = body.email
         try:
-            fb_user = await asyncio.to_thread(firebase_auth.get_user, uid)
-            role = fb_user.custom_claims.get("role", "user") if fb_user.custom_claims else "user"
-            name = fb_user.display_name or (fb_user.email.split("@")[0] if fb_user.email else "User")
-            email = fb_user.email
-        except Exception as e:
-            logger.warning(f"Tactical Firebase Auth fallback for {uid}: {e}")
-            name = sign_in.get("displayName") or email.split("@")[0]
-            
+            role = (await asyncio.to_thread(firebase_auth.get_user, uid)).custom_claims.get("role", "user") if fb_user.custom_claims else "user"
+        except Exception:
+            role = "user"
         u = User(
             id=uid,
-            name=name,
-            email=email,
+            name=fb_user.display_name or (fb_user.email.split("@")[0] if fb_user.email else "User"),
+            email=fb_user.email,
             role=role,
         ).model_dump()
         await db.users.insert_one(u)
@@ -3400,39 +3357,32 @@ async def seed_demo(user=Depends(require_roles("admin"))):
 
     user_by_email: Dict[str, Dict[str, Any]] = {}
     for cred in demo_credentials:
-        try:
-            uid = await ensure_firebase_user(
-                email=cred["email"],
-                password=cred["password"],
-                display_name=cred["name"],
-                role=cred["role"],
+        uid = await ensure_firebase_user(
+            email=cred["email"],
+            password=cred["password"],
+            display_name=cred["name"],
+            role=cred["role"],
+        )
+        existing = await db.users.find_one({"id": uid}, {"_id": 0})
+        if existing:
+            await db.users.update_one(
+                {"id": uid},
+                {"$set": {
+                    "name": cred["name"],
+                    "email": cred["email"],
+                    "role": cred["role"],
+                    "language": cred["language"],
+                }}
             )
-            existing = await db.users.find_one({"id": uid}, {"_id": 0})
-            if existing:
-                await db.users.update_one(
-                    {"id": uid},
-                    {"$set": {
-                        "name": cred["name"],
-                        "email": cred["email"],
-                        "role": cred["role"],
-                        "language": cred["language"],
-                        "org_id": demo_org,
-                        "onboarded": True,
-                    }}
-                )
-                existing["name"] = cred["name"]
-                existing["email"] = cred["email"]
-                existing["role"] = cred["role"]
-                existing["org_id"] = demo_org
-                existing["onboarded"] = True
-                user_by_email[cred["email"]] = existing
-            else:
-                user = User(id=uid, name=cred["name"], email=cred["email"], role=cred["role"], org_id=demo_org, language=cred["language"], onboarded=True)
-                doc = user.model_dump()
-                await db.users.insert_one(doc)
-                user_by_email[cred["email"]] = doc
-        except Exception as e:
-            logger.error(f"Failed to seed demo user {cred['email']}: {str(e)}")
+            existing["name"] = cred["name"]
+            existing["email"] = cred["email"]
+            existing["role"] = cred["role"]
+            user_by_email[cred["email"]] = existing
+        else:
+            user = User(id=uid, name=cred["name"], email=cred["email"], role=cred["role"], org_id=demo_org, language=cred["language"])
+            doc = user.model_dump()
+            await db.users.insert_one(doc)
+            user_by_email[cred["email"]] = doc
 
     volunteer_user = user_by_email.get("volunteer@janrakshakops.com")
     if volunteer_user and not await db.volunteers.find_one({"user_id": volunteer_user["id"]}):
@@ -3652,6 +3602,12 @@ async def get_aggregated_stats(user=Depends(require_roles("admin"))):
 # Include router
 app.include_router(api_router)
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+
+@app.on_event("startup")
+async def startup_event():
+    validate_env()
+    logger.info("🛰️ JANRAKSHAK COMMAND CENTER ONLINE. Environment Validated.")
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    return
