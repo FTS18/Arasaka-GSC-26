@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
@@ -248,6 +249,29 @@ export default function UserDashboardPage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* QR Handover Section */}
+      <div className="tc-card bg-[var(--ink)] text-[var(--bone)] p-8 flex flex-col md:flex-row items-center gap-8 border-none mt-12">
+        <div className="flex-1 space-y-4">
+          <h3 className="font-heading text-3xl font-black tracking-tighter uppercase leading-none">Field Unit Handover</h3>
+          <p className="text-[var(--bone-alt)] opacity-80 font-bold max-w-xl">
+            Moving to the field? Scan this code with the Janrakshak Mobile App to instantly sync your session and start reporting offline.
+          </p>
+          <div className="flex gap-4">
+            <div className="tc-badge tc-badge-outl border-[var(--bone-alt)] text-[var(--bone-alt)]">ADMIN READY</div>
+            <div className="tc-badge tc-badge-outl border-[var(--bone-alt)] text-[var(--bone-alt)]">SECURE SYNC</div>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-sm">
+          <QRCodeSVG 
+            value={JSON.stringify({
+              url: window.location.origin.replace(":3000", ":8000") + "/api",
+              token: localStorage.getItem("janrakshak_token")
+            })} 
+            size={160} 
+          />
         </div>
       </div>
     </div>

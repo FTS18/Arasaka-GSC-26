@@ -5,6 +5,7 @@ class User {
   final String role;
   final bool onboarded;
   final String language;
+  final String? phone;
 
   User({
     required this.id,
@@ -13,6 +14,7 @@ class User {
     required this.role,
     required this.onboarded,
     required this.language,
+    this.phone,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class User {
       role: json['role']?.toString() ?? 'user',
       onboarded: json['onboarded'] == true,
       language: json['language']?.toString() ?? 'en',
+      phone: json['phone']?.toString(),
     );
   }
 
@@ -33,6 +36,7 @@ class User {
     'role': role,
     'onboarded': onboarded,
     'language': language,
+    'phone': phone,
   };
 }
 
@@ -71,4 +75,3 @@ class Need {
     );
   }
 }
-

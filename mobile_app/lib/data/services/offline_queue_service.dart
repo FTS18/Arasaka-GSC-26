@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class OfflineQueueService {
   OfflineQueueService._();
@@ -8,6 +9,7 @@ class OfflineQueueService {
   Database? _db;
 
   Future<void> init() async {
+    if (kIsWeb) return;
     _db ??= await openDatabase(
       p.join(await getDatabasesPath(), 'janrakshak_mobile_queue.db'),
       version: 1,
@@ -25,7 +27,12 @@ class OfflineQueueService {
     );
   }
 
-  Future<void> enqueue(String method, String path, Map<String, dynamic>? body) async {
+  Future<void> enqueue(
+    String method,
+    String path,
+    Map<String, dynamic>? body,
+  ) async {
+    if (kIsWeb) return;
     await init();
     await _db!.insert('queued_mutations', {
       'method': method,
@@ -36,13 +43,14 @@ class OfflineQueueService {
   }
 
   Future<List<Map<String, dynamic>>> pending() async {
+    if (kIsWeb) return [];
     await init();
     return _db!.query('queued_mutations', orderBy: 'id ASC');
   }
 
   Future<void> remove(int id) async {
+    if (kIsWeb) return;
     await init();
     await _db!.delete('queued_mutations', where: 'id = ?', whereArgs: [id]);
   }
 }
-

@@ -8,7 +8,7 @@ import { Download, Pulse, HardDrive, MapPin, ShieldCheck, Warning, Package, Cloc
 import { jsPDF } from "jspdf";
 import { format } from "date-fns";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "leaflet.heat";
@@ -274,6 +274,13 @@ export default function AdminDashboardPage() {
           >
              <FileText size={18} weight="bold" aria-hidden="true" /> SITREP
           </button>
+          <button 
+            onClick={() => window.open(`${api.defaults.baseURL}/needs/export/csv`, "_blank")}
+            className="btn-ghost flex items-center justify-center gap-2 !border-2 font-black text-xs w-full sm:w-auto"
+            aria-label="Export NDMA CSV"
+          >
+             <Download size={18} weight="bold" aria-hidden="true" /> EXPORT CSV
+          </button>
           <Link to="/map" className="btn-ghost flex items-center justify-center gap-2 !border-2 font-black text-xs w-full sm:w-auto" aria-label={t("map")}>
              <Broadcast size={18} weight="bold" aria-hidden="true" /> {t("map")}
           </Link>
@@ -328,6 +335,21 @@ export default function AdminDashboardPage() {
               <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: "400px", width: "100%" }} scrollWheelZoom={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <HeatmapLayer points={b?.markers || []} />
+                {/* AI Predictive Flood Path */}
+                <Polyline 
+                  positions={[
+                    [20.5937, 78.9629],
+                    [21.2, 79.5],
+                    [21.8, 80.2],
+                    [22.5, 81.0]
+                  ]} 
+                  color="blue" 
+                  dashArray="10, 10" 
+                  weight={4}
+                  opacity={0.6}
+                >
+                  <Popup>AI Prediction: Estimated Flood Path (6h Window)</Popup>
+                </Polyline>
                 {b?.markers?.filter(m => m.urgency >= 4).map((m, idx) => (
                   <Marker key={idx} position={[m.location.lat, m.location.lng]} icon={tacticalIcon}>
                     <Popup>

@@ -4,6 +4,7 @@ import '../../auth/view_models/auth_provider.dart';
 import '../../../core/utils.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets.dart';
+import '../../ai_assistant/views/ai_insight_page.dart';
 
 class VolunteerDashboardPage extends StatefulWidget {
   const VolunteerDashboardPage({super.key});
@@ -16,6 +17,8 @@ class _VolunteerDashboardPageState extends State<VolunteerDashboardPage> {
   bool loading = true;
   Map<String, dynamic> stats = {};
   List<Map<String, dynamic>> recentAssignments = [];
+  Map<String, dynamic> volunteer = {};
+  Map<String, dynamic> globalStats = {};
 
   @override
   void initState() {
@@ -27,18 +30,52 @@ class _VolunteerDashboardPageState extends State<VolunteerDashboardPage> {
     try {
       final auth = context.read<AuthProvider>();
       final st = asMap(await auth.api.request('GET', '/dashboard/stats'));
-      final missions = asList(await auth.api.request('GET', '/missions', query: {'limit': 5}));
+      final gst = asMap(await auth.api.request('GET', '/stats/global'));
+      final missions = asList(
+        await auth.api.request('GET', '/missions', query: {'limit': 5}),
+      );
+      final vol = asMap(await auth.api.request('GET', '/volunteers/me'));
+
       stats = st;
+      globalStats = gst;
       recentAssignments = missions;
+      volunteer = vol;
     } catch (_) {
       stats = {};
     }
     if (mounted) setState(() => loading = false);
   }
 
+  Future<void> toggleAvailability() async {
+    final currentStatus = readString(volunteer, 'availability');
+    final nextStatus = currentStatus == 'available' ? 'busy' : 'available';
+
+    setState(() => loading = true);
+    try {
+      await context.read<AuthProvider>().api.request(
+        'PATCH',
+        '/volunteers/me/status',
+        body: {'availability': nextStatus},
+      );
+      await load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Status update failed: $e')));
+      setState(() => loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) return const Center(child: CircularProgressIndicator());
+    final statusRaw = readString(volunteer, 'availability') ?? 'offline';
+    final status = statusRaw.toLowerCase() == 'in_progress'
+        ? 'In Progress'
+        : (statusRaw.isEmpty
+              ? 'Offline'
+              : '${statusRaw.toLowerCase()[0].toUpperCase()}${statusRaw.toLowerCase().substring(1)}');
 
     return RefreshIndicator(
       onRefresh: load,
@@ -58,43 +95,199 @@ class _VolunteerDashboardPageState extends State<VolunteerDashboardPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('STATUS: ACTIVE_DUTY', style: TextStyle(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.w900, fontFamily: 'monospace')),
-                      const SizedBox(height: 4),
                       Text(
-                        context.watch<AuthProvider>().user?.name.toUpperCase() ?? 'OPERATOR',
-                        style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1.0),
+                        'Status: ${status[0].toUpperCase()}${status.substring(1)}',
+                        style: TextStyle(
+                          color: statusRaw == 'available'
+                              ? AppColors.success
+                              : AppColors.critical,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      const Text('VOLUNTEER_UNIT_4 // FIELD_OPERATIONS', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        context.watch<AuthProvider>().user?.name ?? 'Operator',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Volunteer Unit 4 // Field Operations',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(border: Border.all(color: Colors.white24)),
-                  child: const Icon(Icons.qr_code, color: Colors.white, size: 32),
+                Column(
+                  children: [
+                    Switch(
+                      value: statusRaw == 'available',
+                      onChanged: (_) => toggleAvailability(),
+                      activeThumbColor: AppColors.success,
+                    ),
+                    const Text(
+                      'Availability',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Transform.scale(
+                      scale: 0.7,
+                      child: Switch(
+                        value: context.watch<AuthProvider>().lowDataMode,
+                        onChanged: (v) => context.read<AuthProvider>().toggleLowDataMode(v),
+                        activeThumbColor: AppColors.info,
+                      ),
+                    ),
+                    const Text(
+                      'Low-Data',
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButton<String>(
+                      value: 'en',
+                      dropdownColor: AppColors.ink,
+                      underline: const SizedBox(),
+                      style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                      items: const [
+                        DropdownMenuItem(value: 'en', child: Text('EN')),
+                        DropdownMenuItem(value: 'hi', child: Text('HI')),
+                        DropdownMenuItem(value: 'bn', child: Text('BN')),
+                      ],
+                      onChanged: (v) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Language switched to $v (Translating Ops Hub...)')),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
           const Text(
-            'FIELD_INTEL_SUMMARY',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: AppColors.secondaryText),
+            'Global Impact Ticker',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
+              color: AppColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _impactItem(
+                  'Lives Saved',
+                  readInt(globalStats, 'resolved').toString(),
+                ),
+                _impactItem(
+                  'Unit Strength',
+                  readInt(globalStats, 'active_volunteers').toString(),
+                ),
+                _impactItem(
+                  'Reliance Score',
+                  readInt(globalStats, 'impact_score').toString(),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Field Intel Summary',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2.0,
+              color: AppColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AIInsightPage()),
+              ),
+              icon: const Icon(Icons.psychology_outlined),
+              label: const Text('Ask AI Assistant'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           statWrap([
-            statCard('Global Active', readInt(stats, 'active_needs').toString(), AppColors.info),
-            statCard('Critical', readInt(stats, 'critical_needs').toString(), AppColors.critical),
-            statCard('Unit Size', readInt(stats, 'active_volunteers').toString(), AppColors.secondary),
-            statCard('Impact', readInt(stats, 'resolved_needs').toString(), AppColors.success),
+            statCard(
+              'Global Active',
+              readInt(stats, 'active_needs').toString(),
+              AppColors.info,
+            ),
+            statCard(
+              'Critical',
+              readInt(stats, 'critical_needs').toString(),
+              AppColors.critical,
+            ),
+            statCard(
+              'Unit Size',
+              readInt(stats, 'active_volunteers').toString(),
+              AppColors.secondary,
+            ),
+            statCard(
+              'Impact',
+              readInt(stats, 'resolved_needs').toString(),
+              AppColors.success,
+            ),
           ]),
           const SizedBox(height: 32),
           Row(
             children: [
-              const Text('MISSION_DIRECTIVES', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              const Text(
+                'Mission Directives',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
+              ),
               const Spacer(),
-              Text('${recentAssignments.length} ASSIGNED', style: const TextStyle(fontSize: 10, fontFamily: 'monospace', fontWeight: FontWeight.bold, color: AppColors.primary)),
+              Text(
+                '${recentAssignments.length} Assigned',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -102,28 +295,39 @@ class _VolunteerDashboardPageState extends State<VolunteerDashboardPage> {
             Container(
               padding: const EdgeInsets.all(48),
               decoration: BoxDecoration(
-                color: AppColors.surfaceAlt.withOpacity(0.3),
+                color: AppColors.surfaceAlt.withValues(alpha: 0.3),
                 border: Border.all(color: AppColors.borderDefault),
               ),
               child: const Column(
                 children: [
                   Icon(Icons.radar, color: AppColors.mutedText, size: 48),
                   SizedBox(height: 16),
-                  Text('SCANNING_FOR_LOCAL_ASSIGNMENTS...', style: TextStyle(fontSize: 10, color: AppColors.mutedText, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                  Text(
+                    'Scanning for local assignments...',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.mutedText,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             )
           else
             ...recentAssignments.map((m) {
-              final status = readString(m, 'status') ?? 'PENDING';
+              final status = readString(m, 'status') ?? 'pending';
               return CommandCard(
-                title: (readString(m, 'title') ?? 'MISSION_DIRECTIVE').toUpperCase(),
+                title: readString(m, 'title') ?? 'Mission Directive',
                 status: status,
                 subtitle: Text(
-                  (readString(m, 'description') ?? '-').toUpperCase(),
+                  readString(m, 'description') ?? '-',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10, color: AppColors.secondaryText, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.secondaryText,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               );
             }),
@@ -133,11 +337,34 @@ class _VolunteerDashboardPageState extends State<VolunteerDashboardPage> {
             child: ElevatedButton.icon(
               onPressed: () {},
               icon: const Icon(Icons.map_outlined),
-              label: const Text('OPEN_TACTICAL_MAP'),
+              label: const Text('Open Tactical Map'),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _impactItem(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: AppColors.primary,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            color: AppColors.secondaryText,
+          ),
+        ),
+      ],
     );
   }
 }

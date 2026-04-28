@@ -11,13 +11,11 @@ class DebugLogsScreen extends StatefulWidget {
 class _DebugLogsScreenState extends State<DebugLogsScreen> {
   late final LoggerService _logger;
   final ScrollController _scrollController = ScrollController();
-  late Future<void> _refreshFuture;
 
   @override
   void initState() {
     super.initState();
     _logger = LoggerService.instance;
-    _refreshFuture = Future.value();
   }
 
   @override
@@ -95,10 +93,7 @@ class _DebugLogsScreenState extends State<DebugLogsScreen> {
                 ? Center(
                     child: Text(
                       'No logs yet',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
                     ),
                   )
                 : ListView.builder(
@@ -173,22 +168,13 @@ class _LogEntry extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.grey[900],
-        border: Border(
-          left: BorderSide(
-            color: _getLogColor(),
-            width: 3,
-          ),
-        ),
+        border: Border(left: BorderSide(color: _getLogColor(), width: 3)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            _getLogIcon(),
-            size: 16,
-            color: _getLogColor(),
-          ),
+          Icon(_getLogIcon(), size: 16, color: _getLogColor()),
           const SizedBox(width: 8),
           Expanded(
             child: SelectableText(

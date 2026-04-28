@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../auth/view_models/auth_provider.dart';
 import '../../../core/utils.dart';
@@ -24,7 +25,9 @@ class _MissionsPageState extends State<MissionsPage> {
   Future<void> load() async {
     setState(() => loading = true);
     try {
-      missions = asList(await context.read<AuthProvider>().api.request('GET', '/missions'));
+      missions = asList(
+        await context.read<AuthProvider>().api.request('GET', '/missions'),
+      );
     } catch (_) {
       missions = [];
     }
@@ -43,19 +46,22 @@ class _MissionsPageState extends State<MissionsPage> {
           decoration: const InputDecoration(labelText: 'Completion notes'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
               try {
                 await context.read<AuthProvider>().api.request(
-                      'POST',
-                      '/missions/${readString(m, 'id')}/complete',
-                      body: {
-                        'proof_urls': asListOfString(m['proof_urls']),
-                        'completion_notes': notesController.text.trim(),
-                      },
-                    );
+                  'POST',
+                  '/missions/${readString(m, 'id')}/complete',
+                  body: {
+                    'proof_urls': asListOfString(m['proof_urls']),
+                    'completion_notes': notesController.text.trim(),
+                  },
+                );
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Mission completed')),
@@ -63,7 +69,9 @@ class _MissionsPageState extends State<MissionsPage> {
                 load();
               } catch (e) {
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('$e')));
               }
             },
             child: const Text('Confirm'),
@@ -71,6 +79,22 @@ class _MissionsPageState extends State<MissionsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> startMission(Map<String, dynamic> m) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => loading = true);
+    try {
+      await context.read<AuthProvider>().api.request(
+        'POST',
+        '/missions/${readString(m, 'id')}/accept',
+      );
+      messenger.showSnackBar(const SnackBar(content: Text('Mission started')));
+      load();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   @override
@@ -81,26 +105,40 @@ class _MissionsPageState extends State<MissionsPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Missions', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+          Text(
+            'Missions',
+            style: GoogleFonts.chivo(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -1.0,
+            ),
+          ),
           const SizedBox(height: 8),
-          ...missions.map((m) => Card(
-                child: ListTile(
-                  title: Text('Mission ${(readString(m, 'id') ?? '').substring(0, (readString(m, 'id') ?? '').length > 8 ? 8 : (readString(m, 'id') ?? '').length)}'),
-                  subtitle: Text('Status: ${readString(m, 'status') ?? 'planned'}'),
-                  trailing: (readString(m, 'status') == 'completed')
-                      ? const Icon(Icons.check_circle, color: AppColors.ok)
-                      : ElevatedButton(
-                          onPressed: () => completeMission(m),
-                          child: const Text('Complete'),
-                        ),
-                ),
-              )),
+          ...missions.map((m) {
+            final status = readString(m, 'status');
+            final id = readString(m, 'id') ?? '';
+            final shortId = id.substring(0, id.length > 8 ? 8 : id.length);
+
+            return Card(
+              child: ListTile(
+                title: Text('Mission $shortId'),
+                subtitle: Text('Status: ${status ?? 'planned'}'),
+                trailing: status == 'completed'
+                    ? const Icon(Icons.check_circle, color: AppColors.ok)
+                    : status == 'planned'
+                    ? ElevatedButton(
+                        onPressed: () => startMission(m),
+                        child: const Text('Start'),
+                      )
+                    : ElevatedButton(
+                        onPressed: () => completeMission(m),
+                        child: const Text('Complete'),
+                      ),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 }
-
-
-
-

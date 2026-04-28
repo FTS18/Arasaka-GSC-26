@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'theme.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 
 class SparklinePainter extends CustomPainter {
   final Color color;
@@ -8,7 +11,7 @@ class SparklinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.2)
+      ..color = color.withValues(alpha: 0.2)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -21,14 +24,19 @@ class SparklinePainter extends CustomPainter {
     path.lineTo(size.width, size.height * 0.4);
 
     canvas.drawPath(path, paint);
-    
+
     // Also draw a subtle fill
     final fillPath = Path.from(path)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
-    
-    canvas.drawPath(fillPath, Paint()..color = color.withOpacity(0.05)..style = PaintingStyle.fill);
+
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..color = color.withValues(alpha: 0.05)
+        ..style = PaintingStyle.fill,
+    );
   }
 
   @override
@@ -51,9 +59,7 @@ Widget statCard(String label, String value, Color color) {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: color, width: 2),
-            ),
+            border: Border(top: BorderSide(color: color, width: 2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,24 +68,27 @@ Widget statCard(String label, String value, Color color) {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    label.toUpperCase(),
-                    style: const TextStyle(
+                    label,
+                    style: GoogleFonts.sora(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
+                      letterSpacing: 1.0,
                       color: AppColors.secondaryText,
                     ),
                   ),
-                  Icon(Icons.analytics_outlined, size: 12, color: color.withOpacity(0.5)),
+                  Icon(
+                    Icons.analytics_outlined,
+                    size: 12,
+                    color: color.withValues(alpha: 0.5),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Text(
                 value,
-                style: const TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 32,
                   fontWeight: FontWeight.w900,
-                  fontFamily: 'monospace',
                   letterSpacing: -1.0,
                   color: AppColors.primaryText,
                 ),
@@ -108,7 +117,12 @@ class TacticalBadge extends StatelessWidget {
   final String text;
   final Color color;
   final bool critical;
-  const TacticalBadge({super.key, required this.text, required this.color, this.critical = false});
+  const TacticalBadge({
+    super.key,
+    required this.text,
+    required this.color,
+    this.critical = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -120,12 +134,11 @@ class TacticalBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
+        text,
+        style: GoogleFonts.sora(
           color: critical ? Colors.white : color,
           fontSize: 9,
           fontWeight: FontWeight.w900,
-          fontFamily: 'monospace',
           letterSpacing: 0.5,
         ),
       ),
@@ -148,10 +161,10 @@ class StepProgress extends StatelessWidget {
         children: List.generate(steps.length, (idx) {
           final isActive = idx <= currentIdx;
           final isCompleted = status.toLowerCase() == 'completed' && idx == 3;
-          final color = isActive 
-            ? (isCompleted ? AppColors.success : AppColors.primary) 
-            : AppColors.borderDefault;
-            
+          final color = isActive
+              ? (isCompleted ? AppColors.success : AppColors.primary)
+              : AppColors.borderDefault;
+
           return Expanded(
             child: Container(
               height: 4,
@@ -192,9 +205,13 @@ class CommandCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          decoration: accentColor != null 
-            ? BoxDecoration(border: Border(left: BorderSide(color: accentColor!, width: 4))) 
-            : null,
+          decoration: accentColor != null
+              ? BoxDecoration(
+                  border: Border(
+                    left: BorderSide(color: accentColor!, width: 4),
+                  ),
+                )
+              : null,
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,7 +238,7 @@ class CommandCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  ?trailing,
+                  trailing ?? const SizedBox.shrink(),
                 ],
               ),
               if (status != null) ...[
@@ -231,10 +248,10 @@ class CommandCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _statusLabel('INTAKE', status == 'pending'),
-                    _statusLabel('ASSIGNED', status == 'assigned'),
-                    _statusLabel('TRANSIT', status == 'in_progress'),
-                    _statusLabel('RESOLVED', status == 'completed'),
+                    _statusLabel('Intake', status == 'pending'),
+                    _statusLabel('Assigned', status == 'assigned'),
+                    _statusLabel('Transit', status == 'in_progress'),
+                    _statusLabel('Resolved', status == 'completed'),
                   ],
                 ),
               ],
@@ -253,6 +270,75 @@ class CommandCard extends StatelessWidget {
         fontWeight: FontWeight.bold,
         letterSpacing: 0.5,
         color: active ? AppColors.primary : AppColors.mutedText,
+      ),
+    );
+  }
+}
+
+class PushToTalkButton extends StatefulWidget {
+  final Function(String path) onFinished;
+  const PushToTalkButton({super.key, required this.onFinished});
+
+  @override
+  State<PushToTalkButton> createState() => _PushToTalkButtonState();
+}
+
+class _PushToTalkButtonState extends State<PushToTalkButton> {
+  final _audioRecorder = AudioRecorder();
+  bool _isRecording = false;
+
+  @override
+  void dispose() {
+    _audioRecorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _start() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        final dir = await getTemporaryDirectory();
+        final path = '${dir.path}/ptt_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        await _audioRecorder.start(const RecordConfig(), path: path);
+        setState(() => _isRecording = true);
+      }
+    } catch (e) {
+      debugPrint('PTT Start Error: $e');
+    }
+  }
+
+  Future<void> _stop() async {
+    final path = await _audioRecorder.stop();
+    setState(() => _isRecording = false);
+    if (path != null) {
+      widget.onFinished(path);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onLongPressStart: (_) => _start(),
+      onLongPressEnd: (_) => _stop(),
+      child: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: _isRecording ? AppColors.critical : AppColors.primary,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: (_isRecording ? AppColors.critical : AppColors.primary)
+                  .withValues(alpha: 0.3),
+              blurRadius: 20,
+              spreadRadius: _isRecording ? 10 : 2,
+            )
+          ],
+        ),
+        child: Icon(
+          _isRecording ? Icons.mic : Icons.record_voice_over,
+          color: Colors.white,
+          size: 32,
+        ),
       ),
     );
   }

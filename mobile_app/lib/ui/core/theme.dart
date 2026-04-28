@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppConfig {
   static const String backendApi = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://172.31.76.35:8000/api',
+    defaultValue: 'http://localhost:8000/api',
   );
 }
 
@@ -17,7 +18,7 @@ class AppColors {
   // Text
   static const primaryText = Color(0xFF111213);
   static const secondaryText = Color(0xFF5C5E60);
-  static const mutedText = Color(0xFF8A8D91);
+  static const mutedText = Color(0xFF71717A); // Darker than 8A8D91
   static const inverseText = Color(0xFFF6F5F2);
 
   // Brand Accents
@@ -25,13 +26,13 @@ class AppColors {
   static const primaryHover = Color(0xFFC02D3A);
   static const secondary = Color(0xFF2A3D31);
   static const secondaryHover = Color(0xFF1C2921);
-  
+
   // Status
-  static const critical = Color(0xFFE63946);
-  static const warning = Color(0xFFD97706);
-  static const success = Color(0xFF1B4332);
-  static const info = Color(0xFF1E3A8A);
-  static const resolved = Color(0xFF10B981);
+  static const critical = Color(0xFFDC2626); // High contrast red
+  static const warning = Color(0xFFB45309); // Darker amber for readability
+  static const success = Color(0xFF065F46); // Darker emerald
+  static const info = Color(0xFF1E40AF); // Darker blue
+  static const resolved = Color(0xFF059669);
 
   // Borders
   static const borderDefault = Color(0xFFD1CFCA);
@@ -59,18 +60,18 @@ class AppTheme {
         brightness: Brightness.light,
       ),
       scaffoldBackgroundColor: AppColors.page,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.primaryText,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.chivo(
           fontSize: 20,
           fontWeight: FontWeight.w900,
           letterSpacing: -0.5,
           color: AppColors.primaryText,
         ),
-        shape: Border(
+        shape: const Border(
           bottom: BorderSide(color: AppColors.borderDefault, width: 1),
         ),
       ),
@@ -88,18 +89,30 @@ class AppTheme {
         fillColor: AppColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: AppColors.borderDefault, width: 1),
+          borderSide: const BorderSide(
+            color: AppColors.borderDefault,
+            width: 1,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: AppColors.borderDefault, width: 1),
+          borderSide: const BorderSide(
+            color: AppColors.borderDefault,
+            width: 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(2),
           borderSide: const BorderSide(color: AppColors.borderFocus, width: 2),
         ),
-        labelStyle: const TextStyle(color: AppColors.secondaryText, fontWeight: FontWeight.bold),
-        floatingLabelStyle: const TextStyle(color: AppColors.primaryText, fontWeight: FontWeight.bold),
+        labelStyle: GoogleFonts.sora(
+          color: AppColors.secondaryText,
+          fontWeight: FontWeight.bold,
+        ),
+        floatingLabelStyle: GoogleFonts.sora(
+          color: AppColors.primaryText,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -108,9 +121,9 @@ class AppTheme {
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.sora(
             fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
+            letterSpacing: 0.5,
             fontSize: 14,
           ),
         ),
@@ -127,10 +140,16 @@ class AppTheme {
         backgroundColor: AppColors.surface,
         indicatorColor: AppColors.page,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primaryText);
-          }
-          return const TextStyle(fontWeight: FontWeight.normal, fontSize: 12, color: AppColors.secondaryText);
+          final style = GoogleFonts.sora(
+            fontSize: 12,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primaryText
+                : AppColors.secondaryText,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.bold
+                : FontWeight.normal,
+          );
+          return style;
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -140,13 +159,26 @@ class AppTheme {
         }),
       ),
       useMaterial3: true,
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(fontWeight: FontWeight.w900, color: AppColors.primaryText, letterSpacing: -1.0),
-        headlineMedium: TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryText, letterSpacing: -0.5),
-        titleLarge: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText),
-        bodyLarge: TextStyle(color: AppColors.primaryText),
-        bodyMedium: TextStyle(color: AppColors.primaryText),
-      ),
+      textTheme: GoogleFonts.soraTextTheme(ThemeData.light().textTheme)
+          .copyWith(
+            displayLarge: GoogleFonts.chivo(
+              fontWeight: FontWeight.w900,
+              color: AppColors.primaryText,
+              letterSpacing: -1.5,
+            ),
+            headlineMedium: GoogleFonts.chivo(
+              fontWeight: FontWeight.w800,
+              color: AppColors.primaryText,
+              letterSpacing: -0.5,
+            ),
+            titleLarge: GoogleFonts.sora(
+              fontWeight: FontWeight.bold,
+              color: AppColors.primaryText,
+              letterSpacing: -0.5,
+            ),
+            bodyLarge: GoogleFonts.sora(color: AppColors.primaryText),
+            bodyMedium: GoogleFonts.sora(color: AppColors.primaryText),
+          ),
     );
   }
 }

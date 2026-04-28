@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../services/offline_queue_service.dart';
 import '../services/logger_service.dart';
@@ -35,7 +34,7 @@ class ApiClient {
     return raw.replace(
       queryParameters: {
         for (final entry in query.entries)
-          if (entry.value != null) entry.key: '${entry.value}'
+          if (entry.value != null) entry.key: '${entry.value}',
       },
     );
   }
@@ -50,7 +49,8 @@ class ApiClient {
     final uri = _uri(path, query);
     final headers = <String, String>{
       'Content-Type': 'application/json',
-      if (tokenProvider.token != null) 'Authorization': 'Bearer ${tokenProvider.token}',
+      if (tokenProvider.token != null)
+        'Authorization': 'Bearer ${tokenProvider.token}',
     };
     final logger = LoggerService.instance;
 
@@ -60,10 +60,12 @@ class ApiClient {
     try {
       final stopwatch = Stopwatch()..start();
       http.Response response;
-      
+
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+          response = await http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 20));
           break;
         case 'POST':
           response = await http
@@ -81,14 +83,16 @@ class ApiClient {
               .timeout(const Duration(seconds: 20));
           break;
         case 'DELETE':
-          response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
+          response = await http
+              .delete(uri, headers: headers)
+              .timeout(const Duration(seconds: 20));
           break;
         default:
           throw ApiException('Unsupported method $method');
       }
-      
+
       stopwatch.stop();
-      
+
       // Log successful response
       logger.logNetworkResponse(
         method,
@@ -103,7 +107,7 @@ class ApiClient {
         await tokenProvider.logout();
         throw ApiException('Session expired', statusCode: 401);
       }
-      
+
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final decoded = _tryDecode(response.body);
         final detail = decoded is Map<String, dynamic>
@@ -112,22 +116,22 @@ class ApiClient {
         logger.error('API Error: $detail (Status: ${response.statusCode})');
         throw ApiException('$detail', statusCode: response.statusCode);
       }
-      
+
       if (response.body.trim().isEmpty) return null;
       return _tryDecode(response.body);
-    } on SocketException catch (e, st) {
+    } catch (e, st) {
       logger.logNetworkError(method, path, error: e, stackTrace: st);
-      if (queueIfOffline && _isMutation(method)) {
+      final isNetworkError =
+          e is http.ClientException ||
+          e.toString().contains('SocketException') ||
+          e.toString().contains('Connection failed') ||
+          e.toString().contains('XMLHttpRequest error');
+
+      if (isNetworkError && queueIfOffline && _isMutation(method)) {
         logger.info('📋 Queued mutation for offline sync: $method $path');
         await OfflineQueueService.instance.enqueue(method, path, body);
         return {'_offline_queued': true};
       }
-      rethrow;
-    } on TimeoutException catch (e, st) {
-      logger.logNetworkError(method, path, error: 'Network timeout', stackTrace: st);
-      throw ApiException('Network timeout');
-    } catch (e, st) {
-      logger.logNetworkError(method, path, error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -145,4 +149,3 @@ class ApiClient {
     }
   }
 }
-

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../view_models/auth_provider.dart';
 import '../../../core/theme.dart';
+import '../../debug/debug_logs_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,15 +34,26 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _submit() async {
     setState(() => _busy = true);
     try {
-      await context.read<AuthProvider>().login(_email.text.trim(), _password.text);
+      await context.read<AuthProvider>().login(
+        _email.text.trim(),
+        _password.text,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.critical,
             behavior: SnackBarBehavior.floating,
-            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-            content: Text('AUTH_FAILURE: $e', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
+            content: Text(
+              'Auth Failure: $e',
+              style: GoogleFonts.sora(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         );
       }
@@ -56,7 +69,9 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: const BoxDecoration(
           color: AppColors.darkSurface,
           image: DecorationImage(
-            image: NetworkImage('https://images.pexels.com/photos/7002951/pexels-photo-7002951.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940'),
+            image: NetworkImage(
+              'https://images.pexels.com/photos/7002951/pexels-photo-7002951.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+            ),
             fit: BoxFit.cover,
             opacity: 0.2,
           ),
@@ -67,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.page.withOpacity(0.95),
+                color: AppColors.page.withValues(alpha: 0.95),
                 border: Border.all(color: AppColors.borderDefault, width: 2),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -75,35 +90,62 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('EST. 2026 · FIELD CONSOLE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.secondaryText, letterSpacing: 1.5)),
+                  const Text(
+                    'Est. 2026 · Field Console',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.secondaryText,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   const Text(
-                    'SIGN_IN',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1.5),
+                    'Sign In',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.0,
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  const Text('Operator credentials required.', style: TextStyle(color: AppColors.mutedText, fontSize: 13)),
+                  const Text(
+                    'Operator credentials required.',
+                    style: TextStyle(color: AppColors.mutedText, fontSize: 13),
+                  ),
                   const SizedBox(height: 32),
-                  
+
                   // Role Toggler
                   Row(
                     children: [
-                      _roleButton('USER', _selectedRole == 'user', () => _updateCreds('user')),
+                      _roleButton(
+                        'User',
+                        _selectedRole == 'user',
+                        () => _updateCreds('user'),
+                      ),
                       const SizedBox(width: 8),
-                      _roleButton('VOLUNTEER', _selectedRole == 'volunteer', () => _updateCreds('volunteer')),
+                      _roleButton(
+                        'Volunteer',
+                        _selectedRole == 'volunteer',
+                        () => _updateCreds('volunteer'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
 
                   TextField(
                     controller: _email,
-                    decoration: const InputDecoration(labelText: 'EMAIL_ADDRESS'),
+                    decoration: const InputDecoration(
+                      labelText: 'Email Address',
+                    ),
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _password,
-                    decoration: const InputDecoration(labelText: 'ACCESS_PASSWORD'),
+                    decoration: const InputDecoration(
+                      labelText: 'Access Password',
+                    ),
                     obscureText: true,
                   ),
                   const SizedBox(height: 32),
@@ -111,20 +153,64 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _busy ? null : _submit,
-                      child: Text(_busy ? 'AUTHENTICATING...' : 'ENTER_CONSOLE'),
+                      child: Text(
+                        _busy ? 'Authenticating...' : 'Enter Console',
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   const Divider(color: AppColors.borderDefault),
                   const SizedBox(height: 16),
-                  const Text('QUICK_ACCESS_TEST_CREDENTIALS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: AppColors.mutedText, letterSpacing: 1.0)),
+                  const Text(
+                    'Quick Access Test Credentials',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.mutedText,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _testCredCard('USER', 'user@janrakshakops.com', () => _updateCreds('user')),
+                      _testCredCard(
+                        'User',
+                        'user@janrakshakops.com',
+                        () => _updateCreds('user'),
+                      ),
                       const SizedBox(width: 12),
-                      _testCredCard('VOLUNTEER', 'volunteer@janrakshakops.com', () => _updateCreds('volunteer')),
+                      _testCredCard(
+                        'Volunteer',
+                        'volunteer@janrakshakops.com',
+                        () => _updateCreds('volunteer'),
+                      ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const DebugLogsScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.bug_report,
+                        size: 16,
+                        color: AppColors.mutedText,
+                      ),
+                      label: const Text(
+                        'View Debug Logs',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.mutedText,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -143,7 +229,9 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: active ? AppColors.primary : Colors.transparent,
-            border: Border.all(color: active ? AppColors.primary : AppColors.borderDefault),
+            border: Border.all(
+              color: active ? AppColors.primary : AppColors.borderDefault,
+            ),
           ),
           child: Center(
             child: Text(
@@ -169,19 +257,45 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             border: Border.all(color: AppColors.borderDefault),
-            color: AppColors.surfaceAlt.withOpacity(0.5),
+            color: AppColors.surfaceAlt.withValues(alpha: 0.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(border: Border.all(color: AppColors.primary), borderRadius: BorderRadius.circular(1)),
-                child: Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.primary),
+                  borderRadius: BorderRadius.circular(1),
+                ),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primary,
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
-              Text(email, style: const TextStyle(fontSize: 9, fontFamily: 'monospace', color: AppColors.secondaryText), maxLines: 1, overflow: TextOverflow.ellipsis),
-              const Text('********', style: TextStyle(fontSize: 9, fontFamily: 'monospace', color: AppColors.mutedText)),
+              Text(
+                email,
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontFamily: 'Sora',
+                  color: AppColors.secondaryText,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Text(
+                '********',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontFamily: 'Sora',
+                  color: AppColors.mutedText,
+                ),
+              ),
             ],
           ),
         ),

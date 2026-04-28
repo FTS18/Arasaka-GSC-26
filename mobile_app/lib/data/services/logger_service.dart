@@ -47,7 +47,7 @@ class LoggerService {
   // ============ PUBLIC LOGGING METHODS ============
 
   void verbose(String message, {dynamic error, StackTrace? stackTrace}) {
-    _logger.v(message, error: error, stackTrace: stackTrace);
+    _logger.t(message, error: error, stackTrace: stackTrace);
     _addToBuffer('V: $message');
   }
 
@@ -72,7 +72,7 @@ class LoggerService {
   }
 
   void wtf(String message, {dynamic error, StackTrace? stackTrace}) {
-    _logger.wtf(message, error: error, stackTrace: stackTrace);
+    _logger.f(message, error: error, stackTrace: stackTrace);
     _addToBuffer('WTF: $message');
   }
 
@@ -111,7 +111,11 @@ class LoggerService {
     int? durationMs,
   }) {
     final duration = durationMs != null ? ' (${durationMs}ms)' : '';
-    this.error('🔌 NETWORK ERROR: $method $path$duration', error: error, stackTrace: stackTrace);
+    this.error(
+      '🔌 NETWORK ERROR: $method $path$duration',
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   // ============ AUTH LOGGING ============

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../view_models/auth_provider.dart';
 import '../../../core/theme.dart';
@@ -40,7 +41,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.critical,
-          content: Text('PROVISIONING_ERROR: $e', style: const TextStyle(fontFamily: 'monospace')),
+          content: Text('Provisioning Error: $e', style: GoogleFonts.sora()),
         ),
       );
     } finally {
@@ -55,7 +56,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: NetworkImage('https://images.pexels.com/photos/7002951/pexels-photo-7002951.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940'),
+            image: NetworkImage(
+              'https://images.pexels.com/photos/7002951/pexels-photo-7002951.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+            ),
             fit: BoxFit.cover,
             opacity: 0.1,
           ),
@@ -66,7 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Container(
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: AppColors.page.withOpacity(0.95),
+                color: AppColors.page.withValues(alpha: 0.95),
                 border: Border.all(color: AppColors.borderDefault, width: 2),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -74,19 +77,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('UNIT_PROVISIONING_PROTOCOL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.secondaryText, letterSpacing: 1.5)),
+                  const Text(
+                    'Unit Provisioning Protocol',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.secondaryText,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    _step == 1 ? 'SELECT_ROLE' : 'UNIT_DETAILS',
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -1.0),
+                    _step == 1 ? 'Select Role' : 'Unit Details',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.0,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _step == 1 ? 'Define your operational status within the sector.' : 'Finalize your tactical profile for field deployment.',
-                    style: const TextStyle(color: AppColors.mutedText, fontSize: 13),
+                    _step == 1
+                        ? 'Define your operational status within the sector.'
+                        : 'Finalize your tactical profile for field deployment.',
+                    style: const TextStyle(
+                      color: AppColors.mutedText,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 32),
-                  
+
                   if (_step == 1) _buildStep1() else _buildStep2(),
                 ],
               ),
@@ -101,7 +121,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       children: [
         _roleCard(
-          'RESIDENT_OPERATOR',
+          'Resident Operator',
           'Standard access. Report incidents and request resources.',
           Icons.person_pin_circle_outlined,
           _role == 'user',
@@ -109,7 +129,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 12),
         _roleCard(
-          'FIELD_VOLUNTEER',
+          'Field Volunteer',
           'Active deployment. Accept missions and distribute aid.',
           Icons.medical_services_outlined,
           _role == 'volunteer',
@@ -120,7 +140,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () => setState(() => _step = 2),
-            child: const Text('CONFIRM_ROLE'),
+            child: const Text('Confirm Role'),
           ),
         ),
       ],
@@ -132,31 +152,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         TextField(
           controller: _phone,
-          decoration: const InputDecoration(labelText: 'COMMS_FREQUENCY (PHONE)'),
+          decoration: const InputDecoration(
+            labelText: 'Comms Frequency (Phone)',
+          ),
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _city,
-          decoration: const InputDecoration(labelText: 'CURRENT_SECTOR (CITY)'),
+          decoration: const InputDecoration(labelText: 'Current Sector (City)'),
         ),
         const SizedBox(height: 16),
         if (_role == 'volunteer') ...[
           TextField(
             controller: _skills,
-            decoration: const InputDecoration(labelText: 'UNIT_SKILLS (E.G. MEDICAL, LOGISTICS)'),
+            decoration: const InputDecoration(
+              labelText: 'Unit Skills (e.g. Medical, Logistics)',
+            ),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _transport,
             items: const [
-              DropdownMenuItem(value: 'none', child: Text('ON_FOOT')),
-              DropdownMenuItem(value: 'bike', child: Text('BIKE_UNIT')),
-              DropdownMenuItem(value: 'car', child: Text('MOBILE_CAR')),
-              DropdownMenuItem(value: 'truck', child: Text('HEAVY_CARGO')),
+              DropdownMenuItem(value: 'none', child: Text('On Foot')),
+              DropdownMenuItem(value: 'bike', child: Text('Bike Unit')),
+              DropdownMenuItem(value: 'car', child: Text('Mobile Car')),
+              DropdownMenuItem(value: 'truck', child: Text('Heavy Cargo')),
             ],
             onChanged: (v) => setState(() => _transport = v ?? 'none'),
-            decoration: const InputDecoration(labelText: 'TRANSPORT_ASSETS'),
+            decoration: const InputDecoration(labelText: 'Transport Assets'),
           ),
           const SizedBox(height: 16),
         ],
@@ -166,7 +190,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Expanded(
               child: TextButton(
                 onPressed: () => setState(() => _step = 1),
-                child: const Text('BACK'),
+                child: const Text('Back'),
               ),
             ),
             const SizedBox(width: 16),
@@ -174,7 +198,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               flex: 2,
               child: ElevatedButton(
                 onPressed: _busy ? null : _submit,
-                child: Text(_busy ? 'PROVISIONING...' : 'FINALIZE_DEPLOYMENT'),
+                child: Text(_busy ? 'Provisioning...' : 'Finalize Deployment'),
               ),
             ),
           ],
@@ -183,31 +207,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _roleCard(String title, String desc, IconData icon, bool active, VoidCallback onTap) {
+  Widget _roleCard(
+    String title,
+    String desc,
+    IconData icon,
+    bool active,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: active ? AppColors.primary.withOpacity(0.05) : Colors.transparent,
-          border: Border.all(color: active ? AppColors.primary : AppColors.borderDefault, width: active ? 2 : 1),
+          color: active
+              ? AppColors.primary.withValues(alpha: 0.05)
+              : Colors.transparent,
+          border: Border.all(
+            color: active ? AppColors.primary : AppColors.borderDefault,
+            width: active ? 2 : 1,
+          ),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Row(
           children: [
-            Icon(icon, color: active ? AppColors.primary : AppColors.secondaryText, size: 32),
+            Icon(
+              icon,
+              color: active ? AppColors.primary : AppColors.secondaryText,
+              size: 32,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: active ? AppColors.primary : AppColors.primaryText)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: active ? AppColors.primary : AppColors.primaryText,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(desc, style: const TextStyle(fontSize: 11, color: AppColors.mutedText)),
+                  Text(
+                    desc,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.mutedText,
+                    ),
+                  ),
                 ],
               ),
             ),
-            if (active) const Icon(Icons.check_circle, color: AppColors.primary, size: 20),
+            if (active)
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.primary,
+                size: 20,
+              ),
           ],
         ),
       ),

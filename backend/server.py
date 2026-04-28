@@ -443,6 +443,37 @@ async def update_global_stats(field: str, increment: int = 1):
     except Exception as e:
         logger.error(f"Failed to update stats: {e}")
 
+async def archive_resolved_needs():
+    """ðŸ”„ Tactical Maintenance: Automatically archives resolved needs after 48 hours."""
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        # Find resolved needs older than 48h
+        query = {
+            "status": "resolved",
+            "updated_at": {"$lt": iso(cutoff)}
+        }
+        needs_to_archive = await db.needs.find(query).to_list(length=1000)
+        for need in needs_to_archive:
+            # Move to archive collection
+            await db.archived_needs.insert_one(need)
+            # Remove from active
+            await db.needs.delete_one({"id": need["id"]})
+        
+        if needs_to_archive:
+            logger.info(f"âœ… Archived {len(needs_to_archive)} stale resolved needs.")
+    except Exception as e:
+        logger.error(f"Archive task failed: {e}")
+
+async def maintenance_loop():
+    """ðŸ”„ Tactical Sentinel: Continuous background system maintenance."""
+    while True:
+        try:
+            await archive_resolved_needs()
+            # Add other maintenance tasks here
+        except Exception as e:
+            logger.error(f"Maintenance loop error: {e}")
+        await asyncio.sleep(3600 * 12) # Every 12 hours
+
 # ðŸ“Š Global Usage Sentinel: Monitor System-Wide Consumption (Daily Reset Logic)
 _USAGE_MONITOR = {
     "reads": 0, "writes": 0, "deletes": 0,
@@ -771,13 +802,34 @@ db = FirestoreDatabase(firestore_client)
 
 app = FastAPI(title="Humanitarian Command Center API")
 
+# --------- CORS & Security ---------
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:8000,https://janrakshak.org").split(",")
+
+class DynamicCORSMiddleware(CORSMiddleware):
+    def is_allowed_origin(self, origin: str) -> bool:
+        if origin.startswith("http://localhost:"):
+            return True
+        return super().is_allowed_origin(origin)
+
+app.add_middleware(
+    DynamicCORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 @app.on_event("startup")
 async def startup_event():
     await TASK_QUEUE.start()
-    # ðŸ›ï¸ Load Previous Persistent Metrics
+    # 📦 Load Previous Persistent Metrics
     await load_usage_from_db()
+    
+    # Register Tactical Background Loops
+    asyncio.create_task(usage_sync_loop())
+    asyncio.create_task(maintenance_loop())
 
     if TELEGRAM_BOT_TOKEN:
         if TELEGRAM_MODE == "polling" and ENABLE_TELEGRAM_POLLING:
@@ -882,21 +934,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     return resp
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:3000",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
-
+# Logging & Instrumentation
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("janrakshak")
 
@@ -1420,6 +1458,11 @@ def compute_priority(need: Dict[str, Any], disaster: bool = False) -> float:
             score += 15
         if urgency >= 4:
             score += 10
+            
+    # ðŸ§  Intelligence Upgrade: Sentiment Penalty/Bonus (Vulnerability 2.0)
+    sentiment_bonus = need.get("sentiment_priority", 0) # Range -10 to +10 from AI
+    score += sentiment_bonus
+    
     return round(min(score, 100), 2)
 
 
@@ -3274,8 +3317,36 @@ async def toggle_disaster(body: Dict[str, Any], user=Depends(require_roles("admi
     await reprioritize_all()
     await log_audit(user, "disaster_mode_toggle", "system", {"enabled": enabled, "reason": reason})
     await ws_manager.broadcast('{"type": "update", "source": "system"}')
-    return {"disaster_mode": enabled, "disaster_reason": reason}
 
+@api_router.post("/ai/translate")
+async def translate_tactical(body: Dict[str, str], user=Depends(get_current_user)):
+    """🌍 Tactical L10n: Gemini-powered crisis translation."""
+    text = body.get("text")
+    target_lang = body.get("target", "English")
+    if not text:
+        raise HTTPException(400, "Missing text to translate")
+    
+    system = f"You are a crisis translator. Translate the text to {target_lang}. Preserve tactical meaning and urgency. Output ONLY the translated text."
+    result = await ai_insight(text, system=system)
+    return {"translated_text": result}
+
+@api_router.get("/needs/export/csv")
+async def export_needs_csv(user=Depends(require_roles("admin"))):
+    """📊 Govt. Compliance: Export all needs in NDMA-compatible CSV format."""
+    needs = await db.needs.find({}).to_list(length=10000)
+    import csv
+    import io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Title", "Category", "Priority", "Urgency", "People Affected", "Status", "Lat", "Lng", "Address", "Created At"])
+    for n in needs:
+        loc = n.get("location", {})
+        writer.writerow([
+            n.get("id"), n.get("title"), n.get("category"), 
+            compute_priority(n), n.get("urgency"), n.get("people_affected"),
+            n.get("status"), loc.get("lat"), loc.get("lng"), n.get("address"), n.get("created_at")
+        ])
+    return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=janrakshak_ndma_report.csv"})
 
 @api_router.get("/disaster/state")
 async def disaster_state():

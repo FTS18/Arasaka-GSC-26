@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../auth/view_models/auth_provider.dart';
 import '../../../core/theme.dart';
@@ -42,17 +43,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final nav = role == 'volunteer'
         ? const [
-            NavigationDestination(icon: Icon(Icons.analytics_outlined), label: 'DASHBOARD'),
-            NavigationDestination(icon: Icon(Icons.list_alt_outlined), label: 'NEEDS'),
-            NavigationDestination(icon: Icon(Icons.assignment_outlined), label: 'MISSIONS'),
-            NavigationDestination(icon: Icon(Icons.hub_outlined), label: 'OPS'),
-            NavigationDestination(icon: Icon(Icons.manage_accounts_outlined), label: 'PROFILE'),
+            NavigationDestination(
+              icon: Icon(Icons.analytics_outlined),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.list_alt_outlined),
+              label: 'Needs',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.assignment_outlined),
+              label: 'Missions',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.hub_outlined),
+              label: 'Ops Hub',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.manage_accounts_outlined),
+              label: 'Profile',
+            ),
           ]
         : const [
-            NavigationDestination(icon: Icon(Icons.analytics_outlined), label: 'DASHBOARD'),
-            NavigationDestination(icon: Icon(Icons.list_alt_outlined), label: 'NEEDS'),
-            NavigationDestination(icon: Icon(Icons.add_box_outlined), label: 'REPORT'),
-            NavigationDestination(icon: Icon(Icons.manage_accounts_outlined), label: 'PROFILE'),
+            NavigationDestination(
+              icon: Icon(Icons.analytics_outlined),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.list_alt_outlined),
+              label: 'Needs',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.add_box_outlined),
+              label: 'Report',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.manage_accounts_outlined),
+              label: 'Profile',
+            ),
           ];
 
     if (idx >= pages.length) {
@@ -64,8 +92,22 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('JANRAKSHAK_OPS'.toUpperCase(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.0)),
-            Text('${role.toUpperCase()}_UNIT'.toUpperCase(), style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+            Text(
+              'Janrakshak Ops',
+              style: GoogleFonts.chivo(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+            Text(
+              '${role.toLowerCase()[0].toUpperCase()}${role.toLowerCase().substring(1)} Unit',
+              style: GoogleFonts.sora(
+                fontSize: 10,
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -73,8 +115,12 @@ class _HomeScreenState extends State<HomeScreen> {
             const Padding(
               padding: EdgeInsets.only(right: 12),
               child: Tooltip(
-                message: 'OFFLINE_MODE',
-                child: Icon(Icons.cloud_off, color: AppColors.warning, size: 20),
+                message: 'Offline Mode',
+                child: Icon(
+                  Icons.cloud_off,
+                  color: AppColors.warning,
+                  size: 20,
+                ),
               ),
             ),
           IconButton(
@@ -101,11 +147,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   dense: true,
                   leading: const Icon(Icons.priority_high, color: Colors.white),
                   title: Text(
-                    auth.liveAssignmentMessage!.toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace'),
+                    auth.liveAssignmentMessage!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                     onPressed: auth.clearLiveAssignmentNotice,
                   ),
                 ),
