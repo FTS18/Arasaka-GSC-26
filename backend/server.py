@@ -3,6 +3,7 @@ Smart Resource Allocation - Humanitarian Command Center
 # v2.7.1 - Tactical Evidence & AI Depth Sync active
 """
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, WebSocket, WebSocketDisconnect, BackgroundTasks, Response
+import uvicorn
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -3685,3 +3686,6 @@ async def validate_env_startup_event():
 @app.on_event("shutdown")
 async def shutdown_db_client():
     return
+
+if __name__ == "__main__":
+    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)

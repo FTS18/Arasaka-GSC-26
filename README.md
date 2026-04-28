@@ -8,6 +8,26 @@ Janrakshak is an enterprise-grade humanitarian command system built to solve the
 
 ---
 
+## 🚀 Quick Start: Execution Commands
+
+To run the entire Janrakshak ecosystem, execute the following commands in three separate terminals:
+
+```bash
+# 1. Start the Intelligence Engine (Backend)
+cd backend
+python server.py  # Ensure venv is active and dependencies are installed
+
+# 2. Start the Tactical Interface (Frontend)
+cd frontend
+npm start         # Runs the React PWA Command Console
+
+# 3. Start the Native Suite (Mobile App)
+cd mobile_app
+flutter run       # Runs the Native Flutter Operative Tool
+```
+
+---
+
 ## Project Vision & Problem Definition
 
 ### Identifying the Humanitarian Data Gap
