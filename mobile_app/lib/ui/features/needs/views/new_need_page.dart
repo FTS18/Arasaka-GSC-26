@@ -79,7 +79,7 @@ class _NewNeedPageState extends State<NewNeedPage> {
           TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: category,
+            initialValue: category,
             decoration: const InputDecoration(labelText: 'Category'),
             items: const [
               'food',

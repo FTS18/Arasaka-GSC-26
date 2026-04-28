@@ -221,7 +221,7 @@ class CommandCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (trailing != null) trailing!,
+                  ?trailing,
                 ],
               ),
               if (status != null) ...[

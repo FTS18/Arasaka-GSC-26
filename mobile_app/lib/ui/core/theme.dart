@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppConfig {
   static const String backendApi = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://10.0.2.2:8000/api',
+    defaultValue: 'http://172.31.76.35:8000/api',
   );
 }
 

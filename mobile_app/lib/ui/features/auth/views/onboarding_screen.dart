@@ -148,7 +148,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _transport,
+            initialValue: _transport,
             items: const [
               DropdownMenuItem(value: 'none', child: Text('ON_FOOT')),
               DropdownMenuItem(value: 'bike', child: Text('BIKE_UNIT')),
@@ -163,14 +163,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 24),
         Row(
           children: [
-            TextButton(
-              onPressed: () => setState(() => _step = 1),
-              child: const Text('BACK'),
+            Expanded(
+              child: TextButton(
+                onPressed: () => setState(() => _step = 1),
+                child: const Text('BACK'),
+              ),
             ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: _busy ? null : _submit,
-              child: Text(_busy ? 'PROVISIONING...' : 'FINALIZE_DEPLOYMENT'),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _busy ? null : _submit,
+                child: Text(_busy ? 'PROVISIONING...' : 'FINALIZE_DEPLOYMENT'),
+              ),
             ),
           ],
         ),

@@ -61,7 +61,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           TextField(controller: phone, decoration: const InputDecoration(labelText: 'CONTACT_PHONE')),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: language,
+            initialValue: language,
             decoration: const InputDecoration(labelText: 'SYSTEM_LANGUAGE'),
             items: const [
               DropdownMenuItem(value: 'en', child: Text('ENGLISH (US)')),

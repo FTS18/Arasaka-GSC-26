@@ -48,7 +48,7 @@ class _VolunteersPageState extends State<VolunteersPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: availability.isEmpty ? null : availability,
+                  initialValue: availability.isEmpty ? null : availability,
                   items: const [
                     DropdownMenuItem(value: 'available', child: Text('Available')),
                     DropdownMenuItem(value: 'busy', child: Text('Busy')),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../services/offline_queue_service.dart';
+import '../services/logger_service.dart';
 import '../../ui/core/theme.dart';
 
 class ApiException implements Exception {
@@ -51,9 +52,15 @@ class ApiClient {
       'Content-Type': 'application/json',
       if (tokenProvider.token != null) 'Authorization': 'Bearer ${tokenProvider.token}',
     };
+    final logger = LoggerService.instance;
+
+    // Log the request
+    logger.logNetworkRequest(method, path, body: body);
 
     try {
+      final stopwatch = Stopwatch()..start();
       http.Response response;
+      
       switch (method.toUpperCase()) {
         case 'GET':
           response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 20));
@@ -79,28 +86,49 @@ class ApiClient {
         default:
           throw ApiException('Unsupported method $method');
       }
+      
+      stopwatch.stop();
+      
+      // Log successful response
+      logger.logNetworkResponse(
+        method,
+        path,
+        statusCode: response.statusCode,
+        response: response.body,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
 
       if (response.statusCode == 401) {
+        logger.logAuthError('Unauthorized', 'Session expired');
         await tokenProvider.logout();
         throw ApiException('Session expired', statusCode: 401);
       }
+      
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final decoded = _tryDecode(response.body);
         final detail = decoded is Map<String, dynamic>
             ? (decoded['detail'] ?? decoded['message'] ?? 'Request failed')
             : 'Request failed';
+        logger.error('API Error: $detail (Status: ${response.statusCode})');
         throw ApiException('$detail', statusCode: response.statusCode);
       }
+      
       if (response.body.trim().isEmpty) return null;
       return _tryDecode(response.body);
-    } on SocketException {
+    } on SocketException catch (e, st) {
+      logger.logNetworkError(method, path, error: e, stackTrace: st);
       if (queueIfOffline && _isMutation(method)) {
+        logger.info('📋 Queued mutation for offline sync: $method $path');
         await OfflineQueueService.instance.enqueue(method, path, body);
         return {'_offline_queued': true};
       }
       rethrow;
-    } on TimeoutException {
+    } on TimeoutException catch (e, st) {
+      logger.logNetworkError(method, path, error: 'Network timeout', stackTrace: st);
       throw ApiException('Network timeout');
+    } catch (e, st) {
+      logger.logNetworkError(method, path, error: e, stackTrace: st);
+      rethrow;
     }
   }
 

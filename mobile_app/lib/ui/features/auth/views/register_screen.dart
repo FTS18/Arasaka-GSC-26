@@ -56,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _role,
+            initialValue: _role,
             items: const [
               DropdownMenuItem(value: 'user', child: Text('User')),
               DropdownMenuItem(value: 'volunteer', child: Text('Volunteer')),
@@ -66,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _language,
+            initialValue: _language,
             items: const [
               DropdownMenuItem(value: 'en', child: Text('English')),
               DropdownMenuItem(value: 'hi', child: Text('Hindi')),
