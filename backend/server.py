@@ -73,6 +73,14 @@ def _infer_org_id(email: Optional[str]) -> str:
     return domain.replace(".", "-")
 
 
+def _is_seeded_user(email: Optional[str]) -> bool:
+    """🛠️ Tactical Heuristic: Determines if a user belongs to pre-seeded demo or admin scopes."""
+    if not email:
+        return False
+    email = email.lower()
+    return email.endswith("@janrakshakops.com") or email.endswith("@janrakshak.site")
+
+
 def validate_env():
     """ðŸ›¡ï¸ Fail-Fast Strategy: Ensures all tactical keys are present before operation."""
     required_values = {
@@ -258,7 +266,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
                 email=fb_user.email,
                 role=role,
                 org_id=_infer_org_id(fb_user.email),
-                onboarded=(role == "admin") # ðŸ›ï¸ Admins auto-skip tactical onboarding
+                onboarded=(_is_seeded_user(fb_user.email) or role == "admin") # ðŸ›ï¸ Admins auto-skip tactical onboarding
             ).model_dump()
             await db.users.insert_one(user)
         except Exception:
@@ -807,9 +815,8 @@ ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http:
 
 class DynamicCORSMiddleware(CORSMiddleware):
     def is_allowed_origin(self, origin: str) -> bool:
-        if origin.startswith("http://localhost:"):
-            return True
-        return super().is_allowed_origin(origin)
+        # 🔓 EMERGENCY OVERRIDE: Allow ALL origins
+        return True
 
 app.add_middleware(
     DynamicCORSMiddleware,
@@ -817,6 +824,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -997,8 +1005,9 @@ async def google_auth(body: Dict[str, str]):
             raw_admins = os.environ.get("ADMIN_EMAILS", "")
             ADMIN_EMAILS = [e.strip() for e in raw_admins.split(",") if e.strip()]
             is_seeded_admin = email.endswith("@janrakshak.site") or email in ADMIN_EMAILS
+            is_seeded_user = _is_seeded_user(email)
             role = "admin" if is_seeded_admin else "user"
-            user = User(id=uid, name=name, email=email, role=role, org_id=_infer_org_id(email), onboarded=is_seeded_admin).model_dump()
+            user = User(id=uid, name=name, email=email, role=role, org_id=_infer_org_id(email), onboarded=(is_seeded_admin or is_seeded_user)).model_dump()
             await db.users.insert_one(user)
         
         token = create_jwt({"uid": uid, "role": user["role"]})

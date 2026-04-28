@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 class AppConfig {
   static const String backendApi = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://localhost:8000/api',
+    defaultValue: 'http://127.0.0.1:8000/api',
   );
 }
 

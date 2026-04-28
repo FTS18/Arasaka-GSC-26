@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'ui/features/auth/view_models/auth_provider.dart';
 import 'ui/features/auth/views/login_screen.dart';
-import 'ui/features/auth/views/onboarding_screen.dart';
 import 'ui/features/home/views/home_screen.dart';
 import 'ui/core/theme.dart';
 
@@ -46,16 +45,6 @@ class AuthGate extends StatelessWidget {
         }
         if (auth.user == null) {
           return const LoginScreen();
-        }
-        final seededEmails = [
-          'admin@janrakshak.in',
-          'volunteer@janrakshak.in',
-          'user@janrakshak.in'
-        ];
-        final isSeeded = seededEmails.contains(auth.user?.email);
-
-        if (auth.user?.onboarded != true && !isSeeded) {
-          return const OnboardingScreen();
         }
         return const HomeScreen();
       },
