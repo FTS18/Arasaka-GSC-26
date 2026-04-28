@@ -38,7 +38,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
     }
 
     try {
-      final bundle = asMap(await api.request('GET', '/api/system/bundle/resources'));
+      final bundle = asMap(await api.request('GET', '/system/bundle/resources'));
       final data = asList(bundle['data']);
       if (data.isNotEmpty) {
         resources = data;

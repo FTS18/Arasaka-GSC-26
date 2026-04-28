@@ -31,7 +31,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     setState(() => loading = true);
     try {
       final auth = context.read<AuthProvider>();
-      await auth.api.request('PUT', '/profile', body: {
+      await auth.api.request('PUT', '/auth/me/profile', body: {
         'name': name.text,
         'phone': phone.text,
         'language': language,

@@ -40,6 +40,7 @@ FIREBASE_SERVICE_ACCOUNT_JSON = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
 AI_API_KEY = os.environ.get('AI_API_KEY')
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_MODE = os.environ.get("TELEGRAM_MODE", "polling") # "polling" or "webhook"
+ENABLE_TELEGRAM_POLLING = os.environ.get("ENABLE_TELEGRAM_POLLING", "false").lower() == "true"
 
 if not FIREBASE_WEB_API_KEY:
     raise RuntimeError("Missing FIREBASE_WEB_API_KEY for Firebase Authentication.")
@@ -51,7 +52,7 @@ PUBLIC_ORG = "public"
 api_router = APIRouter(prefix="/api")
 
 def create_jwt(data: Dict[str, Any]) -> str:
-    """🔐 Tactical Token Generation: Secures session state."""
+    """ðŸ” Tactical Token Generation: Secures session state."""
     payload = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=7)
     payload.update({"exp": expire})
@@ -62,10 +63,10 @@ def _infer_org_id(email: Optional[str]) -> str:
     if not email or "@" not in email:
         return PUBLIC_ORG
     domain = email.split("@", 1)[1].lower()
-    # These are public/consumer/demo domains — treated as the global public org
+    # These are public/consumer/demo domains â€” treated as the global public org
     PUBLIC_DOMAINS = {
         "gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "icloud.com",
-        "janrakshakops.com",  # Demo accounts — always public scope
+        "janrakshakops.com",  # Demo accounts â€” always public scope
     }
     if domain in PUBLIC_DOMAINS:
         return PUBLIC_ORG
@@ -73,17 +74,21 @@ def _infer_org_id(email: Optional[str]) -> str:
 
 
 def validate_env():
-    """🛡️ Fail-Fast Strategy: Ensures all tactical keys are present before operation."""
-    required = ["FIREBASE_WEB_API_KEY", "JWT_SECRET", "AI_API_KEY"]
-    missing = [k for k in required if not os.getenv(k)]
+    """ðŸ›¡ï¸ Fail-Fast Strategy: Ensures all tactical keys are present before operation."""
+    required_values = {
+        "FIREBASE_WEB_API_KEY": FIREBASE_WEB_API_KEY,
+        "JWT_SECRET": JWT_SECRET,
+        "AI_API_KEY": AI_API_KEY,
+    }
+    missing = [k for k, value in required_values.items() if not value]
     if missing:
-        msg = f"🛰️ CRITICAL ERROR: Missing tactical environment keys: {', '.join(missing)}"
+        msg = f"ðŸ›°ï¸ CRITICAL ERROR: Missing tactical environment keys: {', '.join(missing)}"
         logging.critical(msg)
         # sys.exit(1)
 
 
 def _mask_need(need: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
-    """🧠 Operational Security: Masks sensitive citizen data until a volunteer claims the mission."""
+    """ðŸ§  Operational Security: Masks sensitive citizen data until a volunteer claims the mission."""
     if user.get("role") == "admin":
         return need
     
@@ -123,6 +128,13 @@ class ConnectionManager:
         for connection in list(self.active_connections):
             try:
                 await connection.send_text(message)
+            except Exception:
+                pass
+
+    async def broadcast_json(self, message: dict):
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
             except Exception:
                 pass
 
@@ -173,7 +185,7 @@ if not firebase_admin._apps:
 
 
 def _get_nested_value(doc: Dict[str, Any], key: str) -> Any:
-    """🛰️ Tactical Drill-Down: Supports dotted paths for nested Firestore data."""
+    """ðŸ›°ï¸ Tactical Drill-Down: Supports dotted paths for nested Firestore data."""
     if "." not in key:
         return doc.get(key)
     
@@ -216,7 +228,7 @@ def _matches_filter(doc: Dict[str, Any], query: Dict[str, Any]) -> bool:
     return True
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """🔑 Command Logic: Identity resolution for tactical routes."""
+    """ðŸ”‘ Command Logic: Identity resolution for tactical routes."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.split(" ", 1)[1]
@@ -246,7 +258,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
                 email=fb_user.email,
                 role=role,
                 org_id=_infer_org_id(fb_user.email),
-                onboarded=(role == "admin") # 🏛️ Admins auto-skip tactical onboarding
+                onboarded=(role == "admin") # ðŸ›ï¸ Admins auto-skip tactical onboarding
             ).model_dump()
             await db.users.insert_one(user)
         except Exception:
@@ -261,28 +273,10 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
     return user
 
 
-# 📡 Real-time Command Link: WebSocket Manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
-            await connection.send_json(message)
-
-manager = ConnectionManager()
-
-
+# Real-time Command Link: WebSocket Manager
 @api_router.websocket("/ws/live")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    await ws_manager.connect(websocket)
     try:
         while True:
             # Protocol: Wait for pulses or stay alive
@@ -290,9 +284,9 @@ async def websocket_endpoint(websocket: WebSocket):
             # Respond with heartbeat
             await websocket.send_json({"type": "pulse", "timestamp": iso(now_utc())})
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        ws_manager.disconnect(websocket)
     except Exception:
-        manager.disconnect(websocket)
+        ws_manager.disconnect(websocket)
 
 
 async def get_optional_user(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
@@ -411,7 +405,7 @@ class FirestoreCursor:
             _USAGE_MONITOR["reads"] += len(docs)
             return [_apply_projection(d.to_dict(), self.projection) for d in docs]
         except google_exceptions.ResourceExhausted:
-            logger.warning(f"🚨 Quota Exhausted. Local Stream active for {self.collection._collection.id}")
+            logger.warning(f"ðŸš¨ Quota Exhausted. Local Stream active for {self.collection._collection.id}")
             db_local = _load_local_db()
             coll = db_local.get(self.collection._collection.id, [])
             # Basic in-memory filter matching what _matches_filter does
@@ -433,13 +427,13 @@ class FirestoreAggregateCursor:
         return self.rows
 
 
-# 🏛️ Tactical Fallback: Local JSON Storage for Quota Resilience
+# ðŸ›ï¸ Tactical Fallback: Local JSON Storage for Quota Resilience
 _LOCAL_STORAGE_FILE = Path("tactical_fallback_db.json")
 _LOCAL_DB_CACHE = {}
 _BOOT_TIME = time.time()
 
 async def update_global_stats(field: str, increment: int = 1):
-    """🏛️ Strategy 1: The Aggregate Counter (Zero-Read Stats)"""
+    """ðŸ›ï¸ Strategy 1: The Aggregate Counter (Zero-Read Stats)"""
     try:
         await db.metadata.update_one(
             {"id": "global_stats"},
@@ -449,7 +443,7 @@ async def update_global_stats(field: str, increment: int = 1):
     except Exception as e:
         logger.error(f"Failed to update stats: {e}")
 
-# 📊 Global Usage Sentinel: Monitor System-Wide Consumption (Daily Reset Logic)
+# ðŸ“Š Global Usage Sentinel: Monitor System-Wide Consumption (Daily Reset Logic)
 _USAGE_MONITOR = {
     "reads": 0, "writes": 0, "deletes": 0,
     "gemini_flash": 0, "gemini_vision": 0,
@@ -461,7 +455,6 @@ _USAGE_MONITOR = {
 }
 
 async def sync_usage_to_db():
-    global _USAGE_MONITOR
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     if _USAGE_MONITOR["last_reset"] != today:
         # Reset local cache for the new day
@@ -478,7 +471,6 @@ async def sync_usage_to_db():
         logger.error(f"Failed to sync usage: {e}")
 
 async def load_usage_from_db():
-    global _USAGE_MONITOR
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     try:
         doc = await asyncio.to_thread(lambda: db.client.collection("_INTERNAL_METRICS").document(f"usage_{today}").get())
@@ -496,7 +488,7 @@ async def usage_sync_loop():
         await asyncio.sleep(60) # Sync every minute
         await sync_usage_to_db()
 
-# 🧠 SimpleCache: Server-side High-Performance Buffer
+# ðŸ§  SimpleCache: Server-side High-Performance Buffer
 class SimpleCache:
     def __init__(self, ttl=30):
         self.data = {}
@@ -512,7 +504,7 @@ class SimpleCache:
         self.data[key] = {"value": value, "expiry": time.time() + self.ttl}
 
     def clear(self):
-        """🧠 Instant Memory Purge: Force fresh fetch on next call"""
+        """ðŸ§  Instant Memory Purge: Force fresh fetch on next call"""
         self.data = {}
 
 _GLOBAL_CACHE = SimpleCache(ttl=30)
@@ -542,9 +534,9 @@ class FirestoreCollection:
         self._collection = collection
 
     def _scrub(self, data: Dict[str, Any], model_cls: Optional[type] = None) -> Dict[str, Any]:
-        """🛡️ Strict Scrubbing: Deletes any fields not explicitly defined in the Pydantic model."""
+        """ðŸ›¡ï¸ Strict Scrubbing: Deletes any fields not explicitly defined in the Pydantic model."""
         if not model_cls: return data
-        allowed = set(model_cls.__fields__.keys()) | {"id", "created_at", "updated_at", "geohash", "navigation_url", "priority_score"}
+        allowed = set(getattr(model_cls, "model_fields", getattr(model_cls, "__fields__", {})).keys()) | {"id", "created_at", "updated_at", "geohash", "navigation_url", "priority_score"}
         return {k: v for k, v in data.items() if k in allowed}
 
     async def _all_documents(self) -> List[Dict[str, Any]]:
@@ -574,7 +566,7 @@ class FirestoreCollection:
             docs = await self.find(query, projection).limit(1).to_list(length=1)
             return docs[0] if docs else None
         except google_exceptions.ResourceExhausted:
-            logger.warning(f"🚨 Quota Exhausted. Falling back to Local Intelligence for {self._collection.id}")
+            logger.warning(f"ðŸš¨ Quota Exhausted. Falling back to Local Intelligence for {self._collection.id}")
             db_local = _load_local_db()
             coll = db_local.get(self._collection.id, [])
             for doc in coll:
@@ -601,7 +593,7 @@ class FirestoreCollection:
             try: data["people_affected"] = int(data["people_affected"])
             except: data["people_affected"] = 1
 
-        # 🛸 Always update local cache for high-speed hot-reloads and 429 safety
+        # ðŸ›¸ Always update local cache for high-speed hot-reloads and 429 safety
         db_local = _load_local_db()
         coll_id = self._collection.id
         if coll_id not in db_local: db_local[coll_id] = []
@@ -614,12 +606,12 @@ class FirestoreCollection:
             _USAGE_MONITOR["writes"] += 1
             await asyncio.to_thread(lambda: self._collection.document(doc_id).set(data))
         except google_exceptions.ResourceExhausted:
-            logger.error(f"🚨 Quota Exhausted. Mission saved LOCALLY in {coll_id}.")
+            logger.error(f"ðŸš¨ Quota Exhausted. Mission saved LOCALLY in {coll_id}.")
         except Exception as e:
             logger.error(f"Firestore Insert Failure: {str(e)}")
 
     async def insert_many(self, docs: List[Dict[str, Any]], model_cls: Optional[type] = None):
-        """🚀 Atomic Batch Intake: 50x faster bulk operations."""
+        """ðŸš€ Atomic Batch Intake: 50x faster bulk operations."""
         if not docs: return
         # Firestore batches are limited to 500 ops
         chunk_size = 500
@@ -644,7 +636,7 @@ class FirestoreCollection:
             if current:
                 merged = _apply_update(current, update_doc)
                 
-                # 🛸 Update local cache
+                # ðŸ›¸ Update local cache
                 db_local = _load_local_db()
                 coll_id = self._collection.id
                 if coll_id not in db_local: db_local[coll_id] = []
@@ -659,7 +651,7 @@ class FirestoreCollection:
                 merged = _apply_update(base, update_doc)
                 await self.insert_one(merged)
         except google_exceptions.ResourceExhausted:
-             logger.error("🚨 Quota Exhausted. Update synchronized LOCALLY.")
+             logger.error("ðŸš¨ Quota Exhausted. Update synchronized LOCALLY.")
         except Exception as e:
             logger.error(f"Firestore Update Failure: {str(e)}")
 
@@ -670,11 +662,11 @@ class FirestoreCollection:
             await self.update_one({"id": row["id"]}, update_doc)
 
     def batch(self):
-        """🏛️ Strategy 4: Returns a native Firestore WriteBatch"""
+        """ðŸ›ï¸ Strategy 4: Returns a native Firestore WriteBatch"""
         return self._collection.client.batch()
 
     async def count_documents(self, query: Dict[str, Any]):
-        """📊 Native O(1) Cloud Firestore Aggregation"""
+        """ðŸ“Š Native O(1) Cloud Firestore Aggregation"""
         try:
             q = self.find(query)._build_native_query()
             count_query = q.count()
@@ -692,7 +684,7 @@ class FirestoreCollection:
             return len(rows)
 
     async def aggregate(self, pipeline: List[Dict[str, Any]]):
-        # 🔗 Optimized: Try Native Aggregation first
+        # ðŸ”— Optimized: Try Native Aggregation first
         query = self.find({})._build_native_query()
         for stage in pipeline:
             if "$group" in stage and "_id" in stage["$group"] and "$sum" in stage["$group"].get("count", {}):
@@ -738,7 +730,7 @@ class FirestoreCollection:
         except: pass
 
 class ShardedCounter:
-    """🔀 Disaster Scale: Prevents write-contention for global stats."""
+    """ðŸ”€ Disaster Scale: Prevents write-contention for global stats."""
     def __init__(self, name: str):
         self.name = name
         self.shards = 10
@@ -757,7 +749,7 @@ class ShardedCounter:
         return sum(s.get("count", 0) for s in shards)
 
 
-# 🛡️ Global Intelligence: Sharded Counters for Disaster Scale
+# ðŸ›¡ï¸ Global Intelligence: Sharded Counters for Disaster Scale
 lives_saved_counter = ShardedCounter("lives_saved")
 reports_processed_counter = ShardedCounter("reports_processed")
 active_volunteers_counter = ShardedCounter("active_volunteers")
@@ -784,33 +776,35 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 @app.on_event("startup")
 async def startup_event():
     await TASK_QUEUE.start()
-    # 🏛️ Load Previous Persistent Metrics
+    # ðŸ›ï¸ Load Previous Persistent Metrics
     await load_usage_from_db()
 
     if TELEGRAM_BOT_TOKEN:
-        if TELEGRAM_MODE == "polling":
-            # 🔄 Legacy Polling: Active for Local Development
+        if TELEGRAM_MODE == "polling" and ENABLE_TELEGRAM_POLLING:
+            # ðŸ”„ Legacy Polling: Active for Local Development
             asyncio.create_task(run_bot(
                 TELEGRAM_BOT_TOKEN, db, ai_vision_extract, ai_insight, 
                 compute_priority, get_system_state, iso, now_utc
             ))
-            logger.info("🚀 Telegram Polling Thread Active (Local Dev Mode)")
+            logger.info("ðŸš€ Telegram Polling Thread Active (Local Dev Mode)")
+        elif TELEGRAM_MODE == "polling":
+            logger.info("ðŸ›‘ Telegram polling is disabled. Set ENABLE_TELEGRAM_POLLING=true to enable local polling.")
         else:
-            # 🛰️ Webhook Mode: Passive awaiting push from Telegram
-            logger.info("🛰️ Telegram Webhook Mode Active (Production Ready)")
+            # ðŸ›°ï¸ Webhook Mode: Passive awaiting push from Telegram
+            logger.info("ðŸ›°ï¸ Telegram Webhook Mode Active (Production Ready)")
             
         # Start Periodic Usage Sync
         asyncio.create_task(usage_sync_loop())
         logger.info("Janrakshak API Booted.")
     else:
-        logger.warning("⚠️ TELEGRAM_BOT_TOKEN missing. Bot integration disabled.")
+        logger.warning("âš ï¸ TELEGRAM_BOT_TOKEN missing. Bot integration disabled.")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     await TASK_QUEUE.stop()
 
-# 🚦 Live Traffic Management: Disaster-Aware Rate Limiting
+# ðŸš¦ Live Traffic Management: Disaster-Aware Rate Limiting
 rate_limit_store = {}
 
 
@@ -823,7 +817,7 @@ async def disaster_aware_rate_limiter(request: Request, call_next):
     state = await get_system_state()
     is_disaster = state.get("disaster_mode", False)
     
-    # 🕵️ Context-Aware Limits: Relaxed for local dashboard/admin usage
+    # ðŸ•µï¸ Context-Aware Limits: Relaxed for local dashboard/admin usage
     is_local = client_ip in ["127.0.0.1", "::1", "localhost"]
     limit = 2000 if is_local else (150 if is_disaster and "/api/citizen" in request.url.path else 100)
     
@@ -854,7 +848,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         status_code=exc.status_code,
         headers=exc.headers
     )
-    # 🛡️ Nuclear CORS Injection
+    # ðŸ›¡ï¸ Nuclear CORS Injection
     resp.headers["Access-Control-Allow-Origin"] = request.headers.get("Origin", "*")
     resp.headers["Access-Control-Allow-Credentials"] = "true"
     return resp
@@ -862,7 +856,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """🛡️ Global Mission Control: Automatic error tracking & alerting."""
+    """ðŸ›¡ï¸ Global Mission Control: Automatic error tracking & alerting."""
     err_id = str(uuid.uuid4())
     tb = traceback.format_exc()
     logger.error(f"FATAL [{err_id}]: {tb}")
@@ -925,7 +919,7 @@ class User(BaseModel):
     org_id: str = PUBLIC_ORG
     phone: Optional[str] = None
     language: str = "en"
-    onboarded: bool = False # 🏛️ Added for mandatory profile completion
+    onboarded: bool = False # ðŸ›ï¸ Added for mandatory profile completion
     created_at: str = Field(default_factory=lambda: iso(now_utc()))
 
 
@@ -975,7 +969,7 @@ async def google_auth(body: Dict[str, str]):
         raise HTTPException(401, f"Google Auth Failed: {str(e)}")
 
 
-# 🏛️ India City Fast-Path Lookup (avoids OSM roundtrip for common cities)
+# ðŸ›ï¸ India City Fast-Path Lookup (avoids OSM roundtrip for common cities)
 _INDIA_CITY_COORDS: Dict[str, Dict[str, float]] = {
     "mumbai": {"lat": 19.0760, "lng": 72.8777},
     "delhi": {"lat": 28.6139, "lng": 77.2090},
@@ -1010,7 +1004,7 @@ _INDIA_CITY_COORDS: Dict[str, Dict[str, float]] = {
 }
 
 async def _geocode_city(city: Optional[str]) -> Dict[str, Any]:
-    """Resolve city name to lat/lng. Fast-path → OSM fallback → Prompt user."""
+    """Resolve city name to lat/lng. Fast-path â†’ OSM fallback â†’ Prompt user."""
     if not city:
         return {"lat": 0, "lng": 0, "address": "Unspecified"} # #38: don't default to Delhi secretly
     
@@ -1051,7 +1045,7 @@ async def onboard_user(body: OnboardingBody, current_user=Depends(get_current_us
     }})
     
     if body.role == "volunteer":
-        # 🗺️ Geocode volunteer's city to real coordinates
+        # ðŸ—ºï¸ Geocode volunteer's city to real coordinates
         base_loc = await _geocode_city(body.city)
         
         v = Volunteer(
@@ -1067,7 +1061,7 @@ async def onboard_user(body: OnboardingBody, current_user=Depends(get_current_us
         )
         await db.volunteers.insert_one(v.model_dump())
     
-    # 🏛️ Refresh Cache for list APIs
+    # ðŸ›ï¸ Refresh Cache for list APIs
     _GLOBAL_CACHE.clear()
     return {"message": "Onboarding complete", "role": body.role}
 
@@ -1131,6 +1125,7 @@ class Volunteer(BaseModel):
     user_id: str
     name: str
     org_id: str = PUBLIC_ORG
+    phone: Optional[str] = None
     skills: List[str] = []
     languages: List[str] = ["en"]
     availability: Literal["available", "busy", "off_duty"] = "available"
@@ -1293,7 +1288,7 @@ async def ensure_firebase_user(email: str, password: str, display_name: str, rol
 
 @api_router.get("/admin/system/usage")
 async def get_system_usage(user=Depends(require_roles("admin"))):
-    """📊 Tactical Sentinel: Persistent Daily Quota Consumption"""
+    """ðŸ“Š Tactical Sentinel: Persistent Daily Quota Consumption"""
     now = time.time()
     uptime_sec = now - _BOOT_TIME
     
@@ -1342,7 +1337,7 @@ def _org_scope_filter(user: Dict[str, Any]) -> Dict[str, Any]:
     # Admins and public-org users see all public data (no restrictive filter)
     if org_id == PUBLIC_ORG or user.get("role") == "admin":
         return {}
-    # Private org — scope to their org only
+    # Private org â€” scope to their org only
     return {"org_id": org_id}
 
 
@@ -1428,10 +1423,9 @@ def compute_priority(need: Dict[str, Any], disaster: bool = False) -> float:
     return round(min(score, 100), 2)
 
 
-_SYSTEM_STATE_CACHE = {"data": None, "expiry": 0}
+_SYSTEM_STATE_CACHE: Dict[str, Any] = {"data": None, "expiry": 0}
 
 async def get_system_state() -> Dict[str, Any]:
-    global _SYSTEM_STATE_CACHE
     if _SYSTEM_STATE_CACHE["data"] and time.time() < _SYSTEM_STATE_CACHE["expiry"]:
         return _SYSTEM_STATE_CACHE["data"]
     
@@ -1482,14 +1476,14 @@ def encode_geohash(lat: float, lng: float, precision: int = 9) -> str:
 
 
 def generate_navigation_url(lat: float, lng: float, origin_lat: Optional[float] = None, origin_lng: Optional[float] = None) -> str:
-    """🛰️ Truly Free Hack: Generates a Google Maps Deep Link for 100% zero-cost navigation."""
+    """ðŸ›°ï¸ Truly Free Hack: Generates a Google Maps Deep Link for 100% zero-cost navigation."""
     if origin_lat is not None and origin_lng is not None:
         return f"https://www.google.com/maps/dir/?api=1&origin={origin_lat},{origin_lng}&destination={lat},{lng}&travelmode=driving"
     return f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
 
 
 async def reprioritize_all():
-    """🏛️ Strategy 4: Batch Reprioritization (Atomic & High-Performance)"""
+    """ðŸ›ï¸ Strategy 4: Batch Reprioritization (Atomic & High-Performance)"""
     state = await get_system_state()
     dmode = state["disaster_mode"]
     needs = await db.needs.find({"status": {"$in": ["pending", "assigned", "in_progress"]}}).to_list(length=2000)
@@ -1536,7 +1530,7 @@ async def log_audit(actor: Dict[str, Any], action: str, target: str, meta: Dict[
 async def ai_insight(prompt: str, system: str = "You are a humanitarian operations advisor. Be concise, field-ready, 3-5 bullet points max.") -> str:
     if not AI_API_KEY:
         return "AI offline: configure AI_API_KEY."
-    # 🧠 Strategy 8: AI Intelligence - Using Gemini 2.5 Flash for state-of-the-art reasoning
+    # ðŸ§  Strategy 8: AI Intelligence - Using Gemini 2.5 Flash for state-of-the-art reasoning
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={AI_API_KEY}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -1550,7 +1544,7 @@ async def ai_insight(prompt: str, system: str = "You are a humanitarian operatio
     if system:
         payload["system_instruction"] = {"parts": [{"text": system}]}
     
-    # 📧 Pro-Max Reliability: Async Exponential Backoff
+    # ðŸ“§ Pro-Max Reliability: Async Exponential Backoff
     async with httpx.AsyncClient() as client:
         for attempt in range(3):
             try:
@@ -1572,14 +1566,14 @@ async def ai_insight(prompt: str, system: str = "You are a humanitarian operatio
 async def ai_vision_extract(base64_img: str, mime_type: str = "image/jpeg", prompt: str | None = None) -> str:
     if not AI_API_KEY: return "{}"
     
-    # 🧊 AI Memoization: Generate content hash to avoid redundant API costs
+    # ðŸ§Š AI Memoization: Generate content hash to avoid redundant API costs
     img_hash = hashlib.sha256(base64_img.encode()).hexdigest()
     cached = await db.vision_cache.find_one({"id": img_hash}, {"_id": 0})
     if cached:
-        logger.info(f"🧊 AI Cache Hit for image {img_hash[:8]}")
+        logger.info(f"ðŸ§Š AI Cache Hit for image {img_hash[:8]}")
         return cached.get("result", "{}")
 
-    # 🧠 Strategy 9: Multimodal Intelligence - Gemini 2.5 Flash Survey Digitization
+    # ðŸ§  Strategy 9: Multimodal Intelligence - Gemini 2.5 Flash Survey Digitization
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={AI_API_KEY}"
     if not prompt:
         prompt = """
@@ -1587,7 +1581,7 @@ async def ai_vision_extract(base64_img: str, mime_type: str = "image/jpeg", prom
         {
           "short_title": "Professional title (e.g., 'Structural collapse in Sector 17')",
           "category": "emergency_transport|medical|food|shelter|disaster_relief",
-          "description": "Professional situational report: Describe visible details—building state, road access, and hazards—in a formal tone.",
+          "description": "Professional situational report: Describe visible detailsâ€”building state, road access, and hazardsâ€”in a formal tone.",
           "urgency": 1-5,
           "severity": 1-5,
           "people_affected": integer,
@@ -1619,7 +1613,7 @@ async def ai_vision_extract(base64_img: str, mime_type: str = "image/jpeg", prom
                     return res_text
                 elif resp.status_code == 429:
                     wait = (3 ** attempt) + random.random()
-                    logger.warning(f"⚠️ AI Rate Limited. Backing off {wait:.1f}s...")
+                    logger.warning(f"âš ï¸ AI Rate Limited. Backing off {wait:.1f}s...")
                     await asyncio.sleep(wait)
                 else:
                     logger.error(f"Gemini API Failed: {resp.text}")
@@ -1695,11 +1689,11 @@ async def me(user=Depends(get_current_user)):
 
 @api_router.post("/auth/toggle-role")
 async def toggle_role(current_user=Depends(get_current_user)):
-    """🏛️ Strategic Shift: Toggle between Volunteer and Resident roles"""
+    """ðŸ›ï¸ Strategic Shift: Toggle between Volunteer and Resident roles"""
     uid = current_user["id"]
     old_role = current_user["role"]
     
-    # 🚨 Security: Admin role is immutable via this endpoint
+    # ðŸš¨ Security: Admin role is immutable via this endpoint
     if old_role == "admin":
         raise HTTPException(403, "Admin roles cannot be toggled via this interface.")
     
@@ -1724,7 +1718,7 @@ async def toggle_role(current_user=Depends(get_current_user)):
             )
             await db.volunteers.insert_one(v_profile.model_dump())
     
-    # 🏛️ Refresh Cache
+    # ðŸ›ï¸ Refresh Cache
     _GLOBAL_CACHE.clear()
     
     # Return new token if needed for role change
@@ -1779,12 +1773,12 @@ async def list_needs(
     sort_dir: int = -1, 
     skip: int = 0, 
     limit: int = 20, 
-    last_id: Optional[str] = None, # 🏛️ Added for cursor pagination
+    last_id: Optional[str] = None, # ðŸ›ï¸ Added for cursor pagination
     projection: Optional[str] = None,
     created_by: Optional[str] = None, # #57: Added server-side filter
     user=Depends(get_current_user)
 ):
-    """🏛️ Strategy 1 & 8: Global Caching + Strategic Projections"""
+    """ðŸ›ï¸ Strategy 1 & 8: Global Caching + Strategic Projections"""
     fetch_limit = min(limit, 50)
     cache_key = f"needs_{status}_{category}_{sort_by}_{sort_dir}_{skip}_{fetch_limit}_{projection}_{last_id}_{user['role']}_{user.get('org_id') or PUBLIC_ORG}"
     
@@ -1824,7 +1818,7 @@ async def list_needs(
 
 @api_router.get("/needs/markers")
 async def get_need_markers(user=Depends(get_current_user)):
-    """🛰️ Strategy 2: Geospatial Projections (ID + Location Only)"""
+    """ðŸ›°ï¸ Strategy 2: Geospatial Projections (ID + Location Only)"""
     cache_key = f"needs_markers_{user.get('org_id') or PUBLIC_ORG}_{user['role']}"
     cached = _GLOBAL_CACHE.get(cache_key)
     if cached: return cached
@@ -1834,7 +1828,7 @@ async def get_need_markers(user=Depends(get_current_user)):
     q = _org_scope_filter(user)
     results = await db.needs.find(q, projection=projection).to_list(length=500)
     
-    # 🕵️ Privacy Fuzzing Pipeline
+    # ðŸ•µï¸ Privacy Fuzzing Pipeline
     results = [_mask_need(r, user) for r in results]
     
     _GLOBAL_CACHE.set(cache_key, results)
@@ -1849,17 +1843,17 @@ async def get_need(need_id: str, user=Depends(get_current_user)):
     if not n:
         raise HTTPException(404, "Need not found")
     
-    # 🛡️ Tactical Masking Layer
+    # ðŸ›¡ï¸ Tactical Masking Layer
     n = _mask_need(n, user)
     
-    # 🛰️ One-Tap Navigation: Add 100% free deep link
+    # ðŸ›°ï¸ One-Tap Navigation: Add 100% free deep link
     loc = n.get("location", {})
     n["navigation_url"] = generate_navigation_url(loc.get("lat", 0), loc.get("lng", 0))
     return n
 
 
 async def _trigger_ai_verification(need_id: str, img_url: str, user: Dict[str, Any]):
-    """🧠 Strategy 31: Automated Field Audit - Gemini analyzes proof asynchronously."""
+    """ðŸ§  Strategy 31: Automated Field Audit - Gemini analyzes proof asynchronously."""
     need = await db.needs.find_one({"id": need_id})
     if not need or not img_url: return
 
@@ -1898,10 +1892,10 @@ async def _trigger_ai_verification(need_id: str, img_url: str, user: Dict[str, A
     await log_audit(user, "AI_AUTO_AUDIT", need_id, {"score": analysis.get("reliability_score")})
 
 
-@api_router.post("/api/needs/{need_id}/verify-proof")
+@api_router.post("/needs/{need_id}/verify-proof")
 async def verify_mission_proof(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(require_roles("admin", "volunteer"))):
     """
-    🧠 Strategy 18: Intel Reliability - Using AI to verify proof of action.
+    ðŸ§  Strategy 18: Intel Reliability - Using AI to verify proof of action.
     """
     need = await db.needs.find_one({"id": need_id})
     if not need:
@@ -1936,10 +1930,10 @@ async def verify_mission_proof(need_id: str, payload: Dict[str, Any], user: Dict
     
     return analysis
 
-@api_router.post("/api/needs/{need_id}/transcribe-note")
+@api_router.post("/needs/{need_id}/transcribe-note")
 async def transcribe_audio_note(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_user)):
     """
-    🧠 Strategy 25: Multimodal Field Notes - Transcribing audio memos using Gemini.
+    ðŸ§  Strategy 25: Multimodal Field Notes - Transcribing audio memos using Gemini.
     """
     audio_b64 = payload.get("audio")
     mime_type = payload.get("mime_type", "audio/webm")
@@ -1979,7 +1973,7 @@ async def transcribe_audio_note(need_id: str, payload: Dict[str, Any], user: Dic
 
     return note
 
-@api_router.post("/api/needs/{need_id}/evidence")
+@api_router.post("/needs/{need_id}/evidence")
 async def upload_evidence(need_id: str, payload: Dict[str, Any], user: Dict[str, Any] = Depends(get_current_user)):
     # ... logic for evidence upload ...
     pass
@@ -2006,7 +2000,7 @@ async def update_need(need_id: str, patch: Dict[str, Any], user=Depends(get_curr
 
     patch["updated_at"] = iso(now_utc())
     
-    # 🚨 Status Transition Logic: Handle volunteer availability
+    # ðŸš¨ Status Transition Logic: Handle volunteer availability
     new_status = patch.get("status")
     new_vids = patch.get("assigned_volunteer_ids")
     
@@ -2099,7 +2093,7 @@ async def get_my_volunteer_profile(user=Depends(require_roles("volunteer"))):
 
 @api_router.patch("/volunteers/me/status")
 async def toggle_my_status(patch: Dict[str, str], user=Depends(require_roles("volunteer"))):
-    """🧠 Operational Autonomy: Allows volunteers to manually reset status if locked."""
+    """ðŸ§  Operational Autonomy: Allows volunteers to manually reset status if locked."""
     new_status = patch.get("availability")
     if new_status not in ("available", "busy", "away"):
         raise HTTPException(400, "Invalid status code")
@@ -2110,15 +2104,15 @@ async def toggle_my_status(patch: Dict[str, str], user=Depends(require_roles("vo
 
 @api_router.get("/volunteers/leaderboard")
 async def get_leaderboard(user=Depends(get_current_user)):
-    """🏆 Volunteer Hall of Fame: High-trust responders."""
+    """ðŸ† Volunteer Hall of Fame: High-trust responders."""
     try:
         # Secure Org Isolation logic
         f = _org_scope_filter(user)
-        # 🏎️ Parallel Projection Dispatch to avoid O(N) blocking
+        # ðŸŽï¸ Parallel Projection Dispatch to avoid O(N) blocking
         vols = await db.volunteers.find(f, {"name": 1, "trust_score": 1, "completed_missions": 1, "role": 1}).sort("trust_score", -1).to_list(length=10)
         return vols
     except Exception as e:
-        logger.error(f"🛰️ LEADERBOARD SYNC CRITICAL FAILURE: {str(e)}")
+        logger.error(f"ðŸ›°ï¸ LEADERBOARD SYNC CRITICAL FAILURE: {str(e)}")
         # Graceful fallback: return empty list to prevent dashboard crash
         return []
 
@@ -2176,7 +2170,7 @@ async def create_resource(body: ResourceCreate, user=Depends(require_roles("admi
 
 @api_router.get("/resources")
 async def list_resources(category: Optional[str] = None, skip: int = 0, limit: int = 100, user=Depends(get_current_user)):
-    """🏛️ Strategy 1: Server-Side Caching (0 cost shared read)"""
+    """ðŸ›ï¸ Strategy 1: Server-Side Caching (0 cost shared read)"""
     cache_key = f"res_{category}_{skip}_{limit}"
     cached = _GLOBAL_CACHE.get(cache_key)
     if cached: return cached
@@ -2207,7 +2201,7 @@ async def update_resource(rid: str, patch: Dict[str, Any], user=Depends(require_
 # ---------- ADMIN OPERATIONS ----------
 @api_router.get("/admin/system/usage")
 async def system_usage(user=Depends(require_roles("admin"))):
-    """📊 Real-time API usage counters for the Analytics dashboard."""
+    """ðŸ“Š Real-time API usage counters for the Analytics dashboard."""
     limits = _USAGE_MONITOR.get("limits", {})
     usage = {k: v for k, v in _USAGE_MONITOR.items() if k not in ("limits", "last_reset")}
 
@@ -2238,7 +2232,7 @@ async def delete_need(need_id: str, user=Depends(require_roles("admin"))):
 
 @api_router.post("/admin/cache/clear")
 async def clear_cache(user=Depends(require_roles("admin"))):
-    """🧠 Emergency cache purge — forces fresh DB reads on next request."""
+    """ðŸ§  Emergency cache purge â€” forces fresh DB reads on next request."""
     _GLOBAL_CACHE.clear()
     _DASHBOARD_CACHE.clear()
     return {"message": "Cache cleared. Next request will fetch fresh data.", "ts": datetime.now(timezone.utc).isoformat()}
@@ -2331,14 +2325,14 @@ async def suggest_matches(need_id: str, user=Depends(get_current_user)):
     query = {"availability": "available", **_org_scope_filter(user)}
     gh = need.get("geohash")
     
-    # 🕵️ Tactical Expansion: Start with 5km, expand to city-wide if empty
+    # ðŸ•µï¸ Tactical Expansion: Start with 5km, expand to city-wide if empty
     prefix = gh[:5] if gh else None
     if prefix:
         query["geohash"] = {"$gte": prefix, "$lt": prefix + "\uf8ff"}
 
     vols = await db.volunteers.find(query, {"_id": 0}).to_list(length=200)
     
-    # 🚨 Radius Jump: If local is empty, grab all available city-wide
+    # ðŸš¨ Radius Jump: If local is empty, grab all available city-wide
     if not vols:
         vols = await db.volunteers.find({"availability": "available", **_org_scope_filter(user)}, {"_id": 0}).to_list(length=500)
     
@@ -2346,7 +2340,7 @@ async def suggest_matches(need_id: str, user=Depends(get_current_user)):
     n_loc = GeoPoint(**need["location"])
     n_cat = need.get("category", "")
     
-    # 📚 Skill Aliasing: Map categories to volunteer tactical skills
+    # ðŸ“š Skill Aliasing: Map categories to volunteer tactical skills
     skill_reqs = {
         "medical": ["nurse", "doctor", "emt", "medical", "firstaid", "paramedic"],
         "fire": ["firefighter", "safety", "rescue", "fireman"],
@@ -2392,7 +2386,7 @@ async def auto_assign(need_id: str, user=Depends(require_roles("admin"))):
         raise HTTPException(400, "No suitable volunteers available")
     top = matches[0]
     
-    # 🏛️ Strategy 4: Atomic Batch Write
+    # ðŸ›ï¸ Strategy 4: Atomic Batch Write
     batch = db.needs.batch()
     need_ref = db.needs._collection.document(need_id)
     vol_ref = db.volunteers._collection.document(top["id"])
@@ -2405,7 +2399,7 @@ async def auto_assign(need_id: str, user=Depends(require_roles("admin"))):
     
     # Track usage stats manually for batch
     _USAGE_MONITOR["writes"] += 2
-    _GLOBAL_CACHE.clear() # 🧠 Instant Invalidation
+    _GLOBAL_CACHE.clear() # ðŸ§  Instant Invalidation
     _DASHBOARD_CACHE.clear()
     
     await log_audit(user, "auto_assigned", need_id, {"volunteer_id": top["id"], "match_score": top["match_score"]})
@@ -2415,7 +2409,7 @@ async def auto_assign(need_id: str, user=Depends(require_roles("admin"))):
 
 @api_router.post("/needs/{need_id}/claim")
 async def claim_need(need_id: str, user=Depends(require_roles("volunteer", "admin"))):
-    """🏛️ Strategy 14: Decentralized Dispatch - Volunteers can self-assign to missions."""
+    """ðŸ›ï¸ Strategy 14: Decentralized Dispatch - Volunteers can self-assign to missions."""
     need = await db.needs.find_one({"id": need_id, **_org_scope_filter(user)}, {"_id": 0})
     if not need: raise HTTPException(404, "Mission not found")
     if need.get("status") != "pending":
@@ -2457,7 +2451,7 @@ async def match_explain(need_id: str, user=Depends(get_current_user)):
     matches = await suggest_matches(need_id, user)
     top3 = matches[:3]
     prompt = (
-        f"Request: {need['title']} — category {need['category']}, urgency {need['urgency']}/5, "
+        f"Request: {need['title']} â€” category {need['category']}, urgency {need['urgency']}/5, "
         f"{need['people_affected']} affected.\n\nTop candidates:\n" +
         "\n".join(f"- {v['name']} | trust {v['trust_score']} | {v['distance_km']}km | transport {v.get('transport','none')} | match {v['match_score']}" for v in top3) +
         "\n\nRecommend the best volunteer and explain why in 3 bullet points."
@@ -2485,7 +2479,7 @@ async def create_mission(body: MissionCreate, user=Depends(require_roles("admin"
     org_id = user.get("org_id") or PUBLIC_ORG
     m = Mission(**body.model_dump(), org_id=org_id, route=route_points)
     
-    # 🏛️ Strategy 4: High-Velocity Batch Mission Creation
+    # ðŸ›ï¸ Strategy 4: High-Velocity Batch Mission Creation
     batch = db.missions.batch()
     m_ref = db.missions._collection.document(m.id)
     batch.set(m_ref, m.model_dump())
@@ -2502,7 +2496,7 @@ async def create_mission(body: MissionCreate, user=Depends(require_roles("admin"
     await asyncio.to_thread(batch.commit)
     await update_global_stats("missions_count", 1)
     _USAGE_MONITOR["writes"] += (1 + len(body.need_ids) + len(body.volunteer_ids))
-    _GLOBAL_CACHE.clear() # 🧠 Instant Invalidation
+    _GLOBAL_CACHE.clear() # ðŸ§  Instant Invalidation
     _DASHBOARD_CACHE.clear()
     
     await log_audit(user, "mission_created", m.id)
@@ -2521,11 +2515,11 @@ async def list_missions(user=Depends(require_roles("volunteer", "admin"))):
     v = await db.volunteers.find_one({"user_id": user["id"], **_org_scope_filter(user)}, {"_id": 0})
     if not v: return []
     
-    # 🕵️ Tactical Array-contains filter: correctly checks membership in mission roster
+    # ðŸ•µï¸ Tactical Array-contains filter: correctly checks membership in mission roster
     missions = await db.missions.find({"volunteer_ids": {"$array_contains": v["id"]}, **_org_scope_filter(user)}, {"_id": 0}).to_list(length=100)
     missions.sort(key=lambda x: str(x.get("created_at", "")), reverse=True)
     
-    # 🛰️ Dynamic Field Navigation: Generate route from volunteer base to first need
+    # ðŸ›°ï¸ Dynamic Field Navigation: Generate route from volunteer base to first need
     v_loc = v.get("base_location", {})
     for m in missions:
         m["coordinates"] = None
@@ -2661,7 +2655,7 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
     proof_urls = body.get("proof_urls") or m.get("proof_urls", [])
     notes = body.get("completion_notes", "")
     
-    # 🏛️ Strategy 15: Mandatory Evidence - Verification flow enforcement
+    # ðŸ›ï¸ Strategy 15: Mandatory Evidence - Verification flow enforcement
     if not proof_urls and user["role"] == "volunteer":
         raise HTTPException(status_code=400, detail="Tactical Verification Required: Please upload photographic proof of resolution.")
 
@@ -2678,7 +2672,7 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
         {"$set": {"status": "completed", "proof_urls": proof_urls, "completed_at": iso(now_utc())}}
     )
 
-    # 🏛️ Strategy 12: Sub-Collection Offloading (Saves main document size/cost)
+    # ðŸ›ï¸ Strategy 12: Sub-Collection Offloading (Saves main document size/cost)
     event_id = str(uuid.uuid4())
     db.client.collection("missions").document(mid).collection("events").document(event_id).set({
         "type": "completion",
@@ -2687,23 +2681,23 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
         "actor": user["id"]
     })
 
-    # 🌍 Propagation: Resolve all linked needs and trigger AI verification
+    # ðŸŒ Propagation: Resolve all linked needs and trigger AI verification
     _ts = iso(now_utc())
     for nid in m["need_ids"]:
         await db.needs.update_one({"id": nid}, {"$set": {"status": "completed", "updated_at": _ts}})
-        # 🧠 Trigger AI Audit as a Background Task
+        # ðŸ§  Trigger AI Audit as a Background Task
         if proof_urls:
             await TASK_QUEUE.enqueue(_trigger_ai_verification, nid, proof_urls[0], user)
     
-    # 🏛️ Release Volunteer
+    # ðŸ›ï¸ Release Volunteer
     needs = await db.needs.find({"id": {"$in": m["need_ids"]}}).to_list(length=100)
     
-    # 🏛️ Strategy 4: Batch Writes (Efficient updates for multiple volunteers)
+    # ðŸ›ï¸ Strategy 4: Batch Writes (Efficient updates for multiple volunteers)
     batch = db.client.batch()
     
     # Calculate Max Urgency for Trust Bonus
     max_urgency = max([n.get("urgency", 3) for n in needs]) if needs else 3
-    trust_increment = 1.0 + (max_urgency * 0.2) # 🏛️ Dynamic Reward Logic
+    trust_increment = 1.0 + (max_urgency * 0.2) # ðŸ›ï¸ Dynamic Reward Logic
 
     for vid in m.get("volunteer_ids", []):
         v_ref = db.client.collection("volunteers").document(vid)
@@ -2718,7 +2712,7 @@ async def complete_mission(mid: str, body: Dict[str, Any], user=Depends(require_
     total_affected = sum(n.get("people_affected", 0) for n in needs)
     await lives_saved_counter.increment(total_affected)
 
-    # 🔥 Predictive Burn-Rate: Process logistics only when the mission successfully concludes.
+    # ðŸ”¥ Predictive Burn-Rate: Process logistics only when the mission successfully concludes.
     for res_alloc in m.get("resource_allocations", []):
         rid = res_alloc.get("resource_id") or res_alloc.get("id")
         qty = res_alloc.get("quantity", 0)
@@ -2755,7 +2749,7 @@ async def abandon_mission(mid: str, user=Depends(require_roles("volunteer", "adm
     # Re-open needs to public pool
     await db.needs.update_many({"id": {"$in": m["need_ids"]}}, {"$set": {"status": "pending", "assigned_volunteer_ids": [], "updated_at": iso(now_utc())}})
     
-    # 💥 Dynamic Trust Slashing
+    # ðŸ’¥ Dynamic Trust Slashing
     for vid in m["volunteer_ids"]:
         v = await db.volunteers.find_one({"id": vid}, {"_id": 0})
         if v:
@@ -2891,12 +2885,12 @@ async def _bg_report_task(report_id: str, raw_text: str, image_base64: Optional[
     if vision_data:
         extracted = {**vision_data, **extracted}
     
-    # 🧠 Sentiment-Driven Escalation
+    # ðŸ§  Sentiment-Driven Escalation
     tone = extracted.get("tone", "calm")
     if tone in ("panic", "desperation"):
         extracted["urgency"] = max(int(extracted.get("urgency", 3)), 4)
         extracted["ai_escalated"] = True
-        logger.warning(f"🚨 SENTIMENT ESCALATION: Report {report_id} flagged for {tone.upper()}")
+        logger.warning(f"ðŸš¨ SENTIMENT ESCALATION: Report {report_id} flagged for {tone.upper()}")
 
     await db.citizen_reports.update_one({"id": report_id}, {"$set": {"extracted": extracted}})
     
@@ -2920,7 +2914,7 @@ async def submit_citizen_report(body: CitizenReportCreate, bg: BackgroundTasks, 
     report = CitizenReport(**body.model_dump(), org_id=user.get("org_id") or PUBLIC_ORG)
     await db.citizen_reports.insert_one(report.model_dump())
     
-    # 📡 Global Intelligence: Count the SOS intake
+    # ðŸ“¡ Global Intelligence: Count the SOS intake
     await reports_processed_counter.increment(1)
 
     # Offload AI and heavy logic to background
@@ -2973,7 +2967,7 @@ async def convert_report(rid: str, body: Dict[str, Any], user=Depends(require_ro
     extracted = r.get("extracted", {}) or {}
     cat = body.get("category") or extracted.get("category", "other")
     
-    # 🤖 AI Meta-Clustering Check (> 500m radius duplicate merging)
+    # ðŸ¤– AI Meta-Clustering Check (> 500m radius duplicate merging)
     recent_needs = await db.needs.find({"status": {"$in": ["pending", "assigned"]}, "category": cat, **_org_scope_filter(user)}, {"_id": 0}).to_list(length=500)
     for rn in recent_needs:
         dist = haversine_km(loc, GeoPoint(**rn["location"]))
@@ -3024,7 +3018,7 @@ async def convert_report(rid: str, body: Dict[str, Any], user=Depends(require_ro
 
 @api_router.get("/analytics/overview")
 async def analytics_overview(user=Depends(require_roles("admin"))):
-    """📊 Tactical Synth: Pulls from 🏛️ Global Stats with Real-time Failover"""
+    """ðŸ“Š Tactical Synth: Pulls from ðŸ›ï¸ Global Stats with Real-time Failover"""
     cache_key = f"analytics_overview_{user.get('org_id') or PUBLIC_ORG}"
     cached = _DASHBOARD_CACHE.get(cache_key)
     if cached:
@@ -3032,7 +3026,7 @@ async def analytics_overview(user=Depends(require_roles("admin"))):
 
     org_filter = _org_scope_filter(user)
 
-    # 🏎️ Strategy 1: Parallel Fleet Fetching (O(1) latency)
+    # ðŸŽï¸ Strategy 1: Parallel Fleet Fetching (O(1) latency)
     (stats_doc, state, top_vols, all_resources, all_needs) = await asyncio.gather(
         db.metadata.find_one({"id": "global_stats"}, {"_id": 0}),
         get_system_state(),
@@ -3043,7 +3037,7 @@ async def analytics_overview(user=Depends(require_roles("admin"))):
     
     stats = stats_doc or {}
 
-    # 🏛️ Real-time Aggregation Flow: Ensures accuracy even if metadata sync lags
+    # ðŸ›ï¸ Real-time Aggregation Flow: Ensures accuracy even if metadata sync lags
     res_agg = {}
     for r in all_resources:
         cat = r.get("category", "other")
@@ -3098,7 +3092,7 @@ async def analytics_overview(user=Depends(require_roles("admin"))):
 
 @api_router.get("/dashboard/stats")
 async def get_community_stats(user=Depends(get_current_user)):
-    """🏘️ Community Intel: High-level metrics for citizens."""
+    """ðŸ˜ï¸ Community Intel: High-level metrics for citizens."""
     cache_key = f"dashboard_stats_{user.get('org_id') or PUBLIC_ORG}"
     cached = _DASHBOARD_CACHE.get(cache_key)
     if cached:
@@ -3106,7 +3100,7 @@ async def get_community_stats(user=Depends(get_current_user)):
 
     org_filter = _org_scope_filter(user)
 
-    # 🔥 Use find() instead of count_documents() — count_documents silently returns 0
+    # ðŸ”¥ Use find() instead of count_documents() â€” count_documents silently returns 0
     # when Firestore composite indexes are still building. find() always works.
     (all_needs, all_vols, all_missions, resources) = await asyncio.gather(
         db.needs.find(org_filter, {"status": 1, "urgency": 1}).to_list(length=5000),
@@ -3115,7 +3109,7 @@ async def get_community_stats(user=Depends(get_current_user)):
         db.resources.find(org_filter, {"quantity": 1, "min_threshold": 1}).to_list(length=1000),
     )
 
-    # In-memory aggregation — fast, reliable, zero index dependency
+    # In-memory aggregation â€” fast, reliable, zero index dependency
     active    = sum(1 for n in all_needs if n.get("status") in ["pending", "assigned", "in_progress"])
     resolved  = sum(1 for n in all_needs if n.get("status") == "completed")
     critical  = sum(1 for n in all_needs if n.get("urgency") == 5 and n.get("status") == "pending")
@@ -3142,7 +3136,7 @@ async def get_community_stats(user=Depends(get_current_user)):
 
 @api_router.get("/analytics/trend")
 async def analytics_trend(user=Depends(require_roles("admin"))):
-    """📈 Historical 24H Flow: Buckets activity for the capacity chart."""
+    """ðŸ“ˆ Historical 24H Flow: Buckets activity for the capacity chart."""
     now = now_utc()
     trend = []
     # Simplified: Create 6 buckets of 4 hours each
@@ -3162,7 +3156,7 @@ async def analytics_trend(user=Depends(require_roles("admin"))):
 
 @api_router.get("/analytics/hotspots")
 async def analytics_hotspots(user=Depends(require_roles("admin"))):
-    """📍 Predictive Hotspots: simple grid bucket + week-over-week delta."""
+    """ðŸ“ Predictive Hotspots: simple grid bucket + week-over-week delta."""
     now = now_utc()
     window_start = now - timedelta(days=7)
     prev_start = now - timedelta(days=14)
@@ -3214,7 +3208,7 @@ async def analytics_hotspots(user=Depends(require_roles("admin"))):
 
 @api_router.post("/system/state")
 async def update_system_state(body: Dict[str, Any], background_tasks: BackgroundTasks, user=Depends(require_roles("admin"))):
-    """🚨 Disaster Command: Toggle system-wide emergency mode."""
+    """ðŸš¨ Disaster Command: Toggle system-wide emergency mode."""
     mode = body.get("disaster_mode", False)
     reason = body.get("disaster_reason", "Manual Override")
     
@@ -3224,7 +3218,7 @@ async def update_system_state(body: Dict[str, Any], background_tasks: Background
         upsert=True
     )
     
-    # 🏎️ Strategy 1: Instant Cache Invalidation 
+    # ðŸŽï¸ Strategy 1: Instant Cache Invalidation 
     global _SYSTEM_STATE_CACHE
     _SYSTEM_STATE_CACHE = {
         "data": {"disaster_mode": mode, "disaster_reason": reason}, 
@@ -3237,7 +3231,7 @@ async def update_system_state(body: Dict[str, Any], background_tasks: Background
         "reason": reason
     }))
     
-    # 🛰️ Strategy 3: Async Tactical Re-Sync
+    # ðŸ›°ï¸ Strategy 3: Async Tactical Re-Sync
     background_tasks.add_task(reprioritize_all)
     
     return {"ok": True, "disaster_mode": mode}
@@ -3245,7 +3239,7 @@ async def update_system_state(body: Dict[str, Any], background_tasks: Background
 
 @api_router.get("/dashboard/heatmap")
 async def heatmap(user=Depends(get_current_user)):
-    # 🛰️ Bandwidth Sculpting: Only fetch location and visual scoring data
+    # ðŸ›°ï¸ Bandwidth Sculpting: Only fetch location and visual scoring data
     needs = await db.needs.find(
         {"status": {"$in": ["pending", "assigned", "in_progress"]}, **_org_scope_filter(user)},
         {"_id": 0}
@@ -3291,7 +3285,7 @@ async def disaster_state():
 # ---------- LIVE STATS HUB ----------
 @api_router.get("/stats/global")
 async def global_live_stats():
-    """📡 High-Speed Public Impact Ticker."""
+    """ðŸ“¡ High-Speed Public Impact Ticker."""
     lives = await lives_saved_counter.get_total()
     reports = await reports_processed_counter.get_total()
     vols = await active_volunteers_counter.get_total()
@@ -3442,13 +3436,13 @@ async def seed_demo(user=Depends(require_roles("admin"))):
 
     if await db.needs.count_documents({}) == 0:
         demo_needs = [
-            {"title": "Flood relief — 40 families stranded", "category": "disaster_relief", "description": "Families stuck on rooftops in East Delhi after heavy rainfall. Need boats, food, medical.", "lat": 28.6508, "lng": 77.3152, "urgency": 5, "ppl": 160, "vuln": ["children", "elderly"], "severity": 5},
+            {"title": "Flood relief â€” 40 families stranded", "category": "disaster_relief", "description": "Families stuck on rooftops in East Delhi after heavy rainfall. Need boats, food, medical.", "lat": 28.6508, "lng": 77.3152, "urgency": 5, "ppl": 160, "vuln": ["children", "elderly"], "severity": 5},
             {"title": "Medicine shortage at shelter", "category": "medical", "description": "Insulin and ORS running low at community shelter.", "lat": 28.5355, "lng": 77.3910, "urgency": 4, "ppl": 45, "vuln": ["elderly"], "severity": 4},
             {"title": "Food packets for street children", "category": "food", "description": "Night shelter requesting daily meal kits for 30 kids.", "lat": 28.6139, "lng": 77.2090, "urgency": 3, "ppl": 30, "vuln": ["children"], "severity": 3},
-            {"title": "Blood — O-negative urgent", "category": "blood_donation", "description": "Accident victim at AIIMS needs O- donors within 4 hours.", "lat": 28.5672, "lng": 77.2100, "urgency": 5, "ppl": 1, "vuln": ["none"], "severity": 5},
+            {"title": "Blood â€” O-negative urgent", "category": "blood_donation", "description": "Accident victim at AIIMS needs O- donors within 4 hours.", "lat": 28.5672, "lng": 77.2100, "urgency": 5, "ppl": 1, "vuln": ["none"], "severity": 5},
             {"title": "Classroom tutor volunteers", "category": "education", "description": "Slum school needs math tutors for evening classes.", "lat": 28.7041, "lng": 77.1025, "urgency": 2, "ppl": 60, "vuln": ["children"], "severity": 2},
             {"title": "Sanitation drive request", "category": "sanitation", "description": "Residents request cleanup after market waste pileup.", "lat": 28.4595, "lng": 77.0266, "urgency": 2, "ppl": 200, "vuln": ["none"], "severity": 2},
-            {"title": "Emergency transport — pregnant woman", "category": "emergency_transport", "description": "Pregnant woman in labor needs transport to hospital.", "lat": 28.6304, "lng": 77.2177, "urgency": 5, "ppl": 1, "vuln": ["pregnant"], "severity": 5},
+            {"title": "Emergency transport â€” pregnant woman", "category": "emergency_transport", "description": "Pregnant woman in labor needs transport to hospital.", "lat": 28.6304, "lng": 77.2177, "urgency": 5, "ppl": 1, "vuln": ["pregnant"], "severity": 5},
             {"title": "Shelter for displaced", "category": "shelter", "description": "12 families evicted, need temporary shelter tonight.", "lat": 28.6500, "lng": 77.2500, "urgency": 4, "ppl": 48, "vuln": ["children", "elderly"], "severity": 4},
         ]
         state = await get_system_state()
@@ -3480,7 +3474,7 @@ async def seed_demo(user=Depends(require_roles("admin"))):
             )
             await db.resources.insert_one(r.model_dump())
 
-    # 🛰️ Mission Seeding: Assertive re-linking for active operations
+    # ðŸ›°ï¸ Mission Seeding: Assertive re-linking for active operations
     assigned_needs = await db.needs.find({"status": "assigned"}).to_list(length=30)
     all_vols = await db.volunteers.find({}).to_list(length=100)
     
@@ -3523,21 +3517,21 @@ async def seed_demo(user=Depends(require_roles("admin"))):
         "admin_password": "Admin@12345",
     }
 
+async def send_telegram_msg(chat_id: int, text: str):
+    if not TELEGRAM_BOT_TOKEN:
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(url, json={"chat_id": chat_id, "text": text})
+        except Exception as e:
+            logger.error(f"Failed to send telegram msg: {e}")
 
-@api_router.websocket("/ws/live")
-async def websocket_endpoint(websocket: WebSocket):
-    await ws_manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-    except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
 
-
-@api_router.post("/api/telegram/webhook")
+@api_router.post("/telegram/webhook")
 async def telegram_webhook(update: Dict[str, Any]):
-    """🛰️ Strategy 4: Webhook Architecture (Efficient Response)"""
-    # 🚨 Real-time processing for bot updates
+    """ðŸ›°ï¸ Strategy 4: Webhook Architecture (Efficient Response)"""
+    # ðŸš¨ Real-time processing for bot updates
     # The actual processing logic would be moved here from the polling loop
     logger.info(f"Telegram Update Received: {update.get('update_id')}")
     
@@ -3547,7 +3541,7 @@ async def telegram_webhook(update: Dict[str, Any]):
     chat_id = message.get("chat", {}).get("id")
     
     if text == "/start":
-        await send_telegram_msg(chat_id, "📡 JANRAKSHAK COMMAND LINK ESTABLISHED. Send /report to begin triage.")
+        await send_telegram_msg(chat_id, "ðŸ“¡ JANRAKSHAK COMMAND LINK ESTABLISHED. Send /report to begin triage.")
         
     return {"ok": True}
 
@@ -3557,9 +3551,9 @@ async def root():
     return {"service": "Janrakshak GSC-26 Operations API", "status": "online"}
 
 
-@api_router.get("/api/system/bundle/{name}")
+@api_router.get("/system/bundle/{name}")
 async def get_data_bundle(name: str, user=Depends(get_current_user)):
-    """🏛️ Strategy 4: Firestore Bundle Caching (Virtual)"""
+    """ðŸ›ï¸ Strategy 4: Firestore Bundle Caching (Virtual)"""
     cache_key = f"bundle_{name}"
     cached = _GLOBAL_CACHE.get(cache_key)
     if cached: return cached
@@ -3575,13 +3569,13 @@ async def get_data_bundle(name: str, user=Depends(get_current_user)):
     return {"bundle": name, "timestamp": iso(now_utc()), "data": data}
 
 
-@api_router.get("/api/admin/stats")
+@api_router.get("/admin/stats")
 async def get_aggregated_stats(user=Depends(require_roles("admin"))):
-    """🏛️ Strategy 1: Fetch 1 document for entire dashboard"""
+    """ðŸ›ï¸ Strategy 1: Fetch 1 document for entire dashboard"""
     stats = await db.metadata.find_one({"id": "global_stats"}, {"_id": 0})
     state = await get_system_state()
     
-    # 🧠 Strategy 3: Real-time Operational Aggregation
+    # ðŸ§  Strategy 3: Real-time Operational Aggregation
     all_res = await db.resources.find({}, {"category": 1, "quantity": 1, "_id": 0}).to_list(length=1000)
     res_by_cat = {}
     for r in all_res:
@@ -3604,9 +3598,9 @@ app.include_router(api_router)
 
 
 @app.on_event("startup")
-async def startup_event():
+async def validate_env_startup_event():
     validate_env()
-    logger.info("🛰️ JANRAKSHAK COMMAND CENTER ONLINE. Environment Validated.")
+    logger.info("ðŸ›°ï¸ JANRAKSHAK COMMAND CENTER ONLINE. Environment Validated.")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

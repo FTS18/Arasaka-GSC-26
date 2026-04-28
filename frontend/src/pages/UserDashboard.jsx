@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/context/I18nContext";
 import { toast } from "sonner";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import { Broadcast } from "@phosphor-icons/react";
 import SEO from "@/components/SEO";
 import { Skeleton } from "@/components/ui/skeleton";
 
